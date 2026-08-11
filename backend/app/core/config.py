@@ -2,10 +2,10 @@ from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+
 # ponytail: cwd로 ".env"를 찾으면 backend/에서 실행하냐 repo 루트에서 실행하냐에 따라
 # 결과가 달라진다. 이 파일 기준 backend/.env로 고정해서 어디서 uvicorn을 띄우든 같게 만든다.
 _ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
-
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
@@ -26,9 +26,11 @@ class Settings(BaseSettings):
     frontend_base_url: str = "http://localhost:3000"
 
     # --- F-01 한국투자증권 Open API ---
+    kis_base_url: str = "https://openapi.koreainvestment.com:9443"
+    kis_websocket_url: str = "ws://ops.koreainvestment.com:21000"
+    kis_user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     kis_app_key: str = ""
     kis_app_secret: str = ""
-    kis_account_no: str = ""
 
     # --- F-03-2 DART 재무데이터 ---
     dart_api_key: str = ""
