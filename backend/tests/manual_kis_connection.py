@@ -14,7 +14,7 @@ import httpx
 
 from app.common.exceptions import BusinessException
 from app.core.config import settings
-from app.domain.stocks.kis import kis_token_client
+from app.core.kis import kis_token_client
 
 
 KOSPI_CODE = "0001"
