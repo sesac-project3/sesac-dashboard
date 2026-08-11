@@ -7,20 +7,18 @@ from datetime import datetime
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base
+from app.core.database import Base, TimestampMixin
 
 
-class User(Base):
+class User(Base, TimestampMixin):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     device_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     telegram_chat_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
-class KakaoToken(Base):
+class KakaoToken(Base, TimestampMixin):
     __tablename__ = "kakao_tokens"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -32,5 +30,3 @@ class KakaoToken(Base):
     scope: Mapped[str | None] = mapped_column(String, nullable=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     refresh_token_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
