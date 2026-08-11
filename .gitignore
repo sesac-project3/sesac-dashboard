@@ -1,0 +1,9 @@
+# backend (Python)
+backend/.venv/
+backend/__pycache__/
+backend/**/__pycache__/
+backend/.env
+
+# frontend has its own .gitignore (node_modules, .next, .env* 등)
+
+.DS_Store
