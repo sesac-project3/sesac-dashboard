@@ -1,8 +1,14 @@
+from pathlib import Path
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# ponytail: cwd로 ".env"를 찾으면 backend/에서 실행하냐 repo 루트에서 실행하냐에 따라
+# 결과가 달라진다. 이 파일 기준 backend/.env로 고정해서 어디서 uvicorn을 띄우든 같게 만든다.
+_ENV_FILE = Path(__file__).resolve().parent.parent.parent / ".env"
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     # --- infra ---
     database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/sesac"

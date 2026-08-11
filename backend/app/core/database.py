@@ -17,3 +17,12 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+if __name__ == "__main__":
+    # 실행: cd backend && .venv/bin/python -m app.core.database
+    from sqlalchemy import text
+
+    with engine.connect() as conn:
+        assert conn.execute(text("SELECT 1")).scalar() == 1
+    print(f"DB 연결 확인 완료: {engine.url.host}:{engine.url.port}/{engine.url.database}")
