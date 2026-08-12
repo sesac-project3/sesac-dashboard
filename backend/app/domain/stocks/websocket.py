@@ -15,6 +15,7 @@ MARKET_CANDLE_SNAPSHOT_PREFIX = "market:candle:state:"
 MARKET_CANDLE_SNAPSHOT_TTL_SECONDS = 2 * 24 * 60 * 60
 MARKET_SUBSCRIBERS_PREFIX = "market:subscribers:"
 MARKET_MINUTE_CANDLE_PREFIX = "market:minute-candles:"
+MARKET_INTERVALS = ("DAILY", "WEEKLY", "MONTHLY", "MINUTE_15")
 
 
 class MarketWebSocketManager:
@@ -105,19 +106,9 @@ class MarketWebSocketManager:
             payload = json.dumps(message, ensure_ascii=False)
             candle = message.get("candle", {})
             timestamp = candle.get("timestamp") if isinstance(candle, dict) else None
-            if message.get("interval") == "MINUTE_1" and isinstance(timestamp, str):
-                traded_date = timestamp[:10].replace("-", "")
-                await redis.hset(
-                    f"{MARKET_MINUTE_CANDLE_PREFIX}{stock_code}:{traded_date}",
-                    timestamp,
-                    payload,
-                )
-                await redis.expire(
-                    f"{MARKET_MINUTE_CANDLE_PREFIX}{stock_code}:{traded_date}",
-                    MARKET_CANDLE_SNAPSHOT_TTL_SECONDS,
-                )
+            interval = str(message.get("interval", "MINUTE_1"))
             await redis.set(
-                f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}",
+                f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}:{interval}",
                 payload,
                 ex=MARKET_CANDLE_SNAPSHOT_TTL_SECONDS,
             )
@@ -128,10 +119,34 @@ class MarketWebSocketManager:
         finally:
             await redis.aclose()
 
-    async def get_candle_snapshot(self, stock_code: str) -> dict[str, object] | None:
+    async def store_minute_candle(self, stock_code: str, message: dict[str, object]) -> None:
+        candle = message.get("candle", {})
+        timestamp = candle.get("timestamp") if isinstance(candle, dict) else None
+        if not isinstance(timestamp, str):
+            return
+        key = f"{MARKET_MINUTE_CANDLE_PREFIX}{stock_code}:{timestamp[:10].replace('-', '')}"
         redis = Redis.from_url(settings.redis_url, decode_responses=True)
         try:
-            payload = await redis.get(f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}")
+            await redis.hset(key, timestamp, json.dumps(message, ensure_ascii=False))
+            await redis.expire(key, MARKET_CANDLE_SNAPSHOT_TTL_SECONDS)
+            await redis.set(
+                f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}:MINUTE_1",
+                json.dumps(message, ensure_ascii=False),
+                ex=MARKET_CANDLE_SNAPSHOT_TTL_SECONDS,
+            )
+        finally:
+            await redis.aclose()
+
+    async def get_candle_snapshot(
+        self,
+        stock_code: str,
+        interval: str = "MINUTE_1",
+    ) -> dict[str, object] | None:
+        redis = Redis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            payload = await redis.get(
+                f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}:{interval}"
+            )
             return json.loads(payload) if payload else None
         finally:
             await redis.aclose()
@@ -201,9 +216,10 @@ async def restore_kis_subscriptions() -> None:
     manager = market_websocket_manager
     stream = _get_kis_market_stream()
     for stock_code in await manager.active_stock_codes():
-        snapshot = await manager.get_candle_snapshot(stock_code)
-        if snapshot is not None:
-            stream.restore_candle(stock_code, snapshot)
+        for interval in (*MARKET_INTERVALS, "MINUTE_1"):
+            snapshot = await manager.get_candle_snapshot(stock_code, interval)
+            if snapshot is not None:
+                stream.restore_candle(stock_code, snapshot)
         await stream.subscribe(stock_code)
 
 
@@ -220,15 +236,20 @@ async def handle_market_websocket(websocket: WebSocket, token: str | None) -> No
             if message_type in {"subscribe", "unsubscribe"} and stock_code:
                 if message_type == "subscribe":
                     await market_websocket_manager.subscribe(websocket, stock_code)
-                    snapshot = await market_websocket_manager.get_candle_snapshot(stock_code)
+                    snapshots = [
+                        await market_websocket_manager.get_candle_snapshot(stock_code, interval)
+                        for interval in MARKET_INTERVALS
+                    ]
                 else:
                     await market_websocket_manager.unsubscribe(websocket, stock_code)
-                    snapshot = None
+                    snapshots = []
                 await websocket.send_json({
                     "type": f"{message_type}d",
                     "stockCode": stock_code,
                 })
-                if snapshot is not None:
+                for snapshot in snapshots:
+                    if snapshot is None:
+                        continue
                     await websocket.send_json({
                         **snapshot,
                         "type": "candle_snapshot",
