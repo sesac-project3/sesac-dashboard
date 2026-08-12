@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import type { Shortform } from "@/entities/shortform/types";
 import LikeButton from "@/features/shortform-like/LikeButton";
+import { getResumePosition, saveVideoPosition } from "@/widgets/shortform-feed/videoPositionStore";
 
 const SENTIMENT_GRADIENT: Record<Shortform["sentiment"], string> = {
   긍정: "from-rose-500 to-orange-400",
@@ -48,23 +49,48 @@ export default function ShortformCard({
       ([entry]) => {
         if (entry.isIntersecting) {
           onVisibleRef.current?.();
-          const awayMs = leftViewAtRef.current === null ? null : Date.now() - leftViewAtRef.current;
-          if (awayMs === null || awayMs >= RESET_AFTER_MS) {
-            video.currentTime = 0;
+
+          if (leftViewAtRef.current === null) {
+            // 이 컴포넌트 인스턴스에서 처음 화면에 들어온 순간 — 같은 피드 안에서
+            // 스크롤하다 돌아온 게 아니라, 다른 탭 갔다가 돌아와서 방금 새로 마운트됐을
+            // 수도 있다. 그 경우 모듈 스코프 저장소에 10초 이내 위치가 있으면 이어서.
+            const resumeAt = getResumePosition(shortform.id);
+            video.currentTime = resumeAt ?? 0;
+          } else {
+            const awayMs = Date.now() - leftViewAtRef.current;
+            if (awayMs >= RESET_AFTER_MS) {
+              video.currentTime = 0;
+            }
           }
+
           video.play().catch(() => {
             // 브라우저 자동재생 정책으로 막힐 수 있음 — 사용자가 탭하면 어차피 토글되니 무시
           });
         } else {
           video.pause();
           leftViewAtRef.current = Date.now();
+          // currentTime===0이면 저장할 만한 게 없다 — 그보다 중요한 건, 마운트 직후
+          // IntersectionObserver가 레이아웃이 채 안 잡힌 상태에서 isIntersecting:false를
+          // 한 번 먼저 쏘는 경우가 있는데(브라우저 표준 동작), 그때 0으로 덮어쓰면
+          // 방금 복귀 로직이 읽으려던 "10초 이내 저장값"이 통째로 날아간다.
+          if (video.currentTime > 0) {
+            saveVideoPosition(shortform.id, video.currentTime);
+          }
         }
       },
       { threshold: 0.6 },
     );
     observer.observe(video);
-    return () => observer.disconnect();
-  }, []);
+
+    // 탭 이동은 페이지/컴포넌트가 통째로 언마운트되면서 일어난다 — 그 순간에도
+    // 마지막 위치를 저장해둬야 "10초 안에 돌아오면 이어서"가 성립한다.
+    return () => {
+      observer.disconnect();
+      if (video.currentTime > 0) {
+        saveVideoPosition(shortform.id, video.currentTime);
+      }
+    };
+  }, [shortform.id]);
 
   return (
     <article className="relative h-full w-full overflow-hidden bg-black text-white">
@@ -118,6 +144,10 @@ export default function ShortformCard({
         {insightLines.length > 0 && (
           <button
             onClick={toggleInsight}
+            // 데스크톱: 마우스 올리면 미리보기로 뜨고 떼면 사라짐(호버). 탭/클릭은 그대로
+            // 토글이라 터치 기기(호버 없음)에서도 동일하게 동작한다.
+            onMouseEnter={() => setShowInsight(true)}
+            onMouseLeave={() => setShowInsight(false)}
             className={`pointer-events-auto rounded-full px-2 py-1 text-xs font-medium transition-colors ${
               showInsight ? "bg-primary text-white" : "bg-black/40 text-white"
             }`}
