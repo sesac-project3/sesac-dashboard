@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.domain.reports.schemas import PeerComparisonRow, StockReport
+from app.domain.reports.schemas import FinancialRow, PeerComparisonRow, StockReport
 from app.domain.reports.scoring import (
     analyze_financial_trends,
     calculate_risk_scores,
@@ -45,7 +45,7 @@ class ReportService:
     @staticmethod
     def get_stock_report(db: Session, stock_code: str) -> StockReport | None:
         """
-        종목 코드에 해당하는 52주 밴드(밸류에이션) 및 정량 데이터 리포트 생성
+        종목 코드에 해당하는 52주 밴드(밸류에이션), 5년치 재무 시계열 및 정량 데이터 리포트 생성
         """
         # 1. stocks 테이블에서 종목 존재 여부 확인
         stock = db.execute(
@@ -89,7 +89,9 @@ class ReportService:
                 judgementReasons=cached.judgement_reasons,
                 revenueTrend=cached.revenue_trend,
                 operatingProfitTrend=cached.operating_profit_trend,
+                operatingMarginTrend=cached.operating_margin_trend,
                 growthGrade=cached.growth_grade,
+                profitabilityGrade=cached.profitability_grade,
                 riskScores=cached.risk_scores,
                 peerComparison=peer_list,
                 week52High=w_high,
@@ -115,7 +117,6 @@ class ReportService:
             low_prices = [float(row.low_price) for row in candle_rows]
             current_price = float(candle_rows[0].close_price)
         else:
-            # 캔들 미적재 시 종목별 기본 현재가 목업 처리
             default_prices = {
                 "005930": (85000.0, 52900.0, 72300.0),
                 "000660": (223000.0, 52900.0, 183900.0),
@@ -131,25 +132,38 @@ class ReportService:
             high_prices, low_prices, current_price
         )
 
-        # 60일 종가 기준 리스크 스코어 계산 (F-03-3)
-        close_prices = [float(row.close_price) for row in reversed(candle_rows[:60])] if candle_rows else [current_price]
-        risk_scores = calculate_risk_scores(close_prices, operating_profit_margin=12.5)
-
-        # 재무제표 추세 분석 (F-03-2)
+        # 4. DB financial_statements 에서 최근 5년치 수치 수집 (F-03-2)
         fin_rows = db.execute(
             text("""
-                SELECT revenue, operating_profit, operating_margin
+                SELECT fiscal_year, revenue, operating_profit, operating_margin
                 FROM financial_statements
                 WHERE stock_id = :stock_id
                 ORDER BY fiscal_year DESC
-                LIMIT 2
+                LIMIT 5
             """),
             {"stock_id": stock_id},
         ).fetchall()
 
-        rev_trend, profit_trend, _, growth_g, _ = "증가", "증가", "개선", "보통", "보통"
+        # 차트용 5년치 시계열 (연도 오름차순: 과거 -> 최신)
+        financials = [
+            FinancialRow(
+                fiscalYear=int(row.fiscal_year),
+                revenue=float(row.revenue),
+                operatingProfit=float(row.operating_profit),
+                operatingMargin=float(row.operating_margin),
+            )
+            for row in reversed(fin_rows)
+        ]
+
+        latest_opm = float(fin_rows[0].operating_margin) if fin_rows else 10.0
+
+        # 60일 종가 기준 리스크 스코어 계산 (F-03-3)
+        close_prices = [float(row.close_price) for row in reversed(candle_rows[:60])] if candle_rows else [current_price]
+        risk_scores = calculate_risk_scores(close_prices, operating_profit_margin=latest_opm)
+
+        rev_trend, profit_trend, margin_trend, growth_g, profit_g = "증가", "증가", "개선", "보통", "보통"
         if len(fin_rows) >= 2:
-            rev_trend, profit_trend, _, growth_g, _ = analyze_financial_trends(
+            rev_trend, profit_trend, margin_trend, growth_g, profit_g = analyze_financial_trends(
                 float(fin_rows[1].revenue), float(fin_rows[0].revenue),
                 float(fin_rows[1].operating_profit), float(fin_rows[0].operating_profit)
             )
@@ -165,7 +179,10 @@ class ReportService:
             ],
             revenueTrend=rev_trend,
             operatingProfitTrend=profit_trend,
+            operatingMarginTrend=margin_trend,
             growthGrade=growth_g,
+            profitabilityGrade=profit_g,
+            financials=financials,
             riskScores=risk_scores,
             peerComparison=PEER_GROUPS.get(stock_code, []),
             week52High=week52_high,
