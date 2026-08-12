@@ -94,13 +94,16 @@ export default function ShortformCard({
       {/* 상단: 종목/감성 배지 + AI INSIGHT 토글 버튼 (영상을 탭해도 같은 토글이 열림) */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <span className="rounded-full bg-black/40 px-2 py-1 text-xs">
-          {shortform.stockName} · {shortform.sentiment}
+          {shortform.stockName} ·{" "}
+          <span className={shortform.sentiment === "긍정" ? "text-market-up" : "text-market-down"}>
+            {shortform.sentiment}
+          </span>
         </span>
         {insightLines.length > 0 && (
           <button
             onClick={toggleInsight}
             className={`pointer-events-auto rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-              showInsight ? "bg-white text-black" : "bg-black/40 text-white"
+              showInsight ? "bg-primary text-white" : "bg-black/40 text-white"
             }`}
           >
             ✨ AI INSIGHT
@@ -131,21 +134,25 @@ export default function ShortformCard({
         <p className="mt-6 text-xs text-white/40">탭하면 닫혀요</p>
       </div>
 
-      {/* 하단: 자막(캡션) + 좋아요 + CTA — 자막은 접근성 위해 항상 텍스트로 노출 (PRD §8) */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-2 bg-gradient-to-t from-black/80 to-transparent p-3 pb-6">
-        <p className="pointer-events-auto text-sm">{shortform.subtitleText}</p>
-        <div className="pointer-events-auto flex items-center justify-between">
-          <LikeButton
-            shortformId={shortform.id}
-            initialCount={shortform.likeCount}
-          />
-          <Link
-            href={`/stock/${shortform.stockCode}`}
-            className="rounded-full bg-white px-3 py-1 text-sm font-medium text-black"
-          >
-            종목 분석 보기
-          </Link>
+      {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치 */}
+      <div className="pointer-events-auto absolute right-3 bottom-28 flex flex-col items-center gap-5">
+        <LikeButton shortformId={shortform.id} initialCount={shortform.likeCount} />
+      </div>
+
+      {/* 하단: 종목명/자막(캡션) + CTA — 자막은 접근성 위해 항상 텍스트로 노출 (PRD §8) */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-3 bg-gradient-to-t from-black/80 to-transparent p-4 pb-6">
+        <div className="pointer-events-auto">
+          <p className="text-[13px] font-semibold text-white/80">
+            {shortform.stockName} · {shortform.stockCode}
+          </p>
+          <p className="mt-1 text-[14px] leading-[1.5]">{shortform.subtitleText}</p>
         </div>
+        <Link
+          href={`/stock/${shortform.stockCode}`}
+          className="pointer-events-auto flex h-[52px] w-full items-center justify-center rounded-full bg-primary text-[15px] font-medium text-white transition active:scale-[0.98]"
+        >
+          종목 분석 보기
+        </Link>
       </div>
     </article>
   );

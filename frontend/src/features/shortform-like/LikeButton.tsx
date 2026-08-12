@@ -37,15 +37,16 @@ export default function LikeButton({
     }
   };
 
+  // DESIGN_SPEC.md §26: right rail 아이콘 — 큰 아이콘 + 작은 label(카운트).
   return (
     <button
       onClick={onClick}
       disabled={pending}
-      className={`flex items-center gap-1 rounded-full px-3 py-1 text-sm ${
-        liked ? "bg-red-500 text-white" : "bg-white/20 text-white"
-      }`}
+      className="flex flex-col items-center gap-1 text-white"
+      aria-label={liked ? "좋아요 취소" : "좋아요"}
     >
-      {liked ? "❤️" : "🤍"} {count}
+      <span className="text-[28px] leading-none drop-shadow">{liked ? "❤️" : "🤍"}</span>
+      <span className="text-[12px] font-medium">{count}</span>
     </button>
   );
 }
