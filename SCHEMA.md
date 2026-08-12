@@ -14,7 +14,9 @@
 
 ---
 
-## 1. 뉴스/커뮤니티 — `news`
+## 1. 뉴스/커뮤니티 — `data_source`
+
+> 실제 배포 테이블명은 `data_source` (설계 당시 가칭은 `news`). 아래 컬럼/제약은 동일하며 이름만 다르다.
 
 원본 크롤링 파일(`docs/data/raw/*.csv`) 두 종류를 하나의 테이블로 통합한다.
 
@@ -68,18 +70,18 @@ toss 원본의 `like_count`/`read_count` 등 참여도 지표는 이번 스키�
 | sentiment | VARCHAR(10) CHECK ('긍정','부정','중립') | 감성 (text 그 자체) |
 | created_at / updated_at | TIMESTAMPTZ | |
 
-`UNIQUE (date, stock_id)` — **(날짜, 종목) 단위 1건**으로 설계했다. `news`와는 `stock_id` + `date`로 조인한다:
+`UNIQUE (date, stock_id)` — **(날짜, 종목) 단위 1건**으로 설계했다. `data_source`와는 `stock_id` + `date`로 조인한다:
 
 ```sql
 SELECT n.headline, n.source_type, n.url, s.sentiment
-FROM news n
+FROM data_source n
 JOIN sentiment_analysis s
   ON n.stock_id = s.stock_id AND n.date = s.date
 WHERE n.stock_id = :stock_id
 ORDER BY n.date DESC;
 ```
 
-`UNIQUE (date, stock_id)`가 있기 때문에 이 조인은 `news` 여러 건이 그날의 감성 라벨 1건에 매칭되는 N:1 조인이라 팬아웃(row 중복 생성)이 없다.
+`UNIQUE (date, stock_id)`가 있기 때문에 이 조인은 `data_source` 여러 건이 그날의 감성 라벨 1건에 매칭되는 N:1 조인이라 팬아웃(row 중복 생성)이 없다.
 
 > ⚠️ **가정**: PRD §7.4는 "뉴스 분류(기사 단위 배치)"와 "커뮤니티 감성 스코어(게시글 묶음 단위)"를 별개 로직으로 설명한다. 요청하신 컬럼(날짜/종목명/감성)만으로는 기사 1건 단위 라벨을 표현할 수 없어, 이번 스키마는 **하루·종목 단위로 집계된 감성 라벨 1개**로 해석했다 (F-05 날씨 위젯과 동일한 그레인). 기사 단위로 감성을 붙이고 싶다면 `sentiment_analysis`에 `news_id` FK를 추가하고 `UNIQUE(news_id)`로 바꾸는 구조가 필요하다 — 지금 스펙대로면 이 변경 전까지는 기사별이 아니라 종목·날짜별 감성만 저장된다.
 
@@ -87,7 +89,7 @@ ORDER BY n.date DESC;
 
 ## 3. 나머지 테이블 (PRODUCT.md 기준)
 
-PRODUCT.md의 기능(F-01~F-05)·이슈 단위를 그대로 테이블로 옮겼다. P2(F-05 커뮤니티 민심)는 별도 테이블 없이 위 `news`/`sentiment_analysis`에 이미 흡수되어 있다.
+PRODUCT.md의 기능(F-01~F-05)·이슈 단위를 그대로 테이블로 옮겼다. P2(F-05 커뮤니티 민심)는 별도 테이블 없이 위 `data_source`/`sentiment_analysis`에 이미 흡수되어 있다.
 
 | 테이블 | 대응 기능 | 요약 |
 | --- | --- | --- |
@@ -112,7 +114,7 @@ PRODUCT.md의 기능(F-01~F-05)·이슈 단위를 그대로 테이블로 옮겼�
 | F-03-1 투자판단 요약 | `stock_reports.judgement`, `judgement_reasons` |
 | F-03-2 매출/영업이익 분석 | `financial_statements` (원본) + `stock_reports`의 추세/등급 컬럼 |
 | F-03-3 리스크 체크 | `stock_reports.risk_scores` (JSONB) |
-| F-03-4 최신 뉴스 | `news` ⋈ `sentiment_analysis` (위 조인 쿼리) |
+| F-03-4 최신 뉴스 | `data_source` ⋈ `sentiment_analysis` (위 조인 쿼리) |
 | F-03-5 동종업계 비교 | `stock_reports.peer_comparison` (JSONB) |
 | F-03-6 밸류에이션(52주 밴드) | `stock_reports.week52_high/low`, `current_price` |
 
@@ -149,13 +151,13 @@ PRODUCT.md의 기능(F-01~F-05)·이슈 단위를 그대로 테이블로 옮겼�
 erDiagram
     stocks ||--o{ stock_daily_candles : has
     stocks ||--o{ stock_minute_candles : has
-    stocks ||--o{ news : mentions
+    stocks ||--o{ data_source : mentions
     stocks ||--o{ sentiment_analysis : has
     stocks ||--o{ financial_statements : has
     stocks ||--o{ stock_reports : has
     stocks ||--o{ shortforms : has
     stocks ||--o{ watchlists : has
-    news ||--o{ shortforms : "source of"
+    data_source ||--o{ shortforms : "source of"
     users ||--o{ watchlists : has
     users ||--o{ shortform_likes : has
     users ||--o{ telegram_link_codes : has

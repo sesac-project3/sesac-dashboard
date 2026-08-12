@@ -11,6 +11,7 @@ from app.common.response import ApiResponse
 from app.common.s3 import get_shortform_video_url
 from app.common.security import get_current_user_id
 from app.core.database import get_db
+from app.domain.shortforms.generation_service import generate_all_shortforms
 from app.domain.shortforms.models import Shortform as ShortformModel
 from app.domain.shortforms.models import ShortformLike
 from app.domain.shortforms.schemas import BackgroundVideoResponse, LikeToggleResponse
@@ -114,6 +115,16 @@ async def create_shortform(
     db.refresh(row)
 
     return ApiResponse.ok(_to_schema(row, stock))
+
+
+@router.post("/generate", response_model=ApiResponse[list[ShortformSchema]])
+def generate_shortforms(db: Session = Depends(get_db)):
+    """종목(id순) × [긍정, 부정] 조합마다 S3 영상 + sentiment_analysis(없으면 그 자리에서
+    뉴스로 LLM 분류해 채움) + /reports 데이터를 엮어 자막·AI Insight를 생성/갱신한다.
+    수동 트리거 배치 엔드포인트 (crontab 등에서 주기 호출하는 걸 상정)."""
+    rows = generate_all_shortforms(db)
+    stock_by_id = {s.id: s for s in db.scalars(select(Stock)).all()}
+    return ApiResponse.ok([_to_schema(row, stock_by_id[row.stock_id]) for row in rows])
 
 
 @router.post("/{shortform_id}/like", response_model=ApiResponse[LikeToggleResponse])

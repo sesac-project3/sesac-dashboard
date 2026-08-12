@@ -12,6 +12,7 @@ import sys
 from functools import lru_cache
 from pathlib import Path
 
+from app.common.openai_client import get_openai_client
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -37,15 +38,6 @@ def _split_text_into_chunks(text: str, max_bullets: int = 3) -> list[str]:
         if s.strip()
     ]
     return sentences[:max_bullets] if sentences else [normalized]
-
-
-@lru_cache(maxsize=1)
-def get_openai_client():
-    if not settings.openai_api_key:
-        return None
-    from openai import OpenAI
-
-    return OpenAI(api_key=settings.openai_api_key)
 
 
 async def summarize_transcript_with_llm(transcript: str) -> list[str]:
