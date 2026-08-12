@@ -36,3 +36,20 @@ class CandleBackfillResponse(BaseModel):
     totalInsertedCount: int
     totalUpdatedCount: int
     results: list[CandleBackfillResult]
+
+
+class Candle(BaseModel):
+    timestamp: date
+    openPrice: float
+    highPrice: float
+    lowPrice: float
+    closePrice: float
+    volume: int
+
+
+class CandleResponse(BaseModel):
+    stockCode: str
+    stockName: str
+    interval: Literal["DAILY", "WEEKLY", "MONTHLY"]
+    source: Literal["DB"]
+    candles: list[Candle]

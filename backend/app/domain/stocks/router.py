@@ -1,14 +1,26 @@
 from datetime import datetime, timezone
 
+from typing import Literal
+
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
 from app.core.database import get_db
-from app.domain.stocks.schemas import CandleBackfillResponse, MarketIndex, Stock
+from app.domain.stocks.chart_service import get_candles
+from app.domain.stocks.schemas import CandleBackfillResponse, CandleResponse, MarketIndex, Stock
 from app.domain.stocks.service import backfill_daily_candles
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
+
+
+@router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])
+def candles(
+    stock_code: str,
+    interval: Literal["DAILY", "WEEKLY", "MONTHLY"] = "DAILY",
+    db: Session = Depends(get_db),
+):
+    return ApiResponse.ok(get_candles(db, stock_code, interval))
 
 @router.get("/market/indices", response_model=ApiResponse[list[MarketIndex]])
 def market_indices():
