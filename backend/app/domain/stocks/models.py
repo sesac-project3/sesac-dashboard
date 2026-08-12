@@ -3,10 +3,10 @@ from datetime import date, datetime
 from sqlalchemy import BigInteger, Date, DateTime, ForeignKey, Integer, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.core.database import Base
+from app.core.database import Base, TimestampMixin
 
 
-class Stock(Base):
+class Stock(Base, TimestampMixin):
     __tablename__ = "stocks"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -15,7 +15,7 @@ class Stock(Base):
     market: Mapped[str] = mapped_column(String(10), nullable=False)
 
 
-class StockDailyCandle(Base):
+class StockDailyCandle(Base, TimestampMixin):
     __tablename__ = "stock_daily_candles"
     __table_args__ = (UniqueConstraint("stock_id", "trade_date"),)
 
@@ -27,11 +27,9 @@ class StockDailyCandle(Base):
     low_price: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     close_price: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 
-class StockMinuteCandle(Base):
+class StockMinuteCandle(Base, TimestampMixin):
     __tablename__ = "stock_minute_candles"
     __table_args__ = (UniqueConstraint("stock_id", "traded_at"),)
 
@@ -43,5 +41,3 @@ class StockMinuteCandle(Base):
     low_price: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     close_price: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

@@ -1,22 +1,33 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, WebSocket
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
 from app.core.database import get_db
 from app.domain.stocks.chart_service import get_candles
+from app.domain.stocks.models import Stock as StockModel
 from app.domain.stocks.schemas import (
     CandleBackfillResponse,
     CandleResponse,
     ChartInterval,
     MarketIndex,
     MinuteCandleBackfillResponse,
+    Stock,
 )
 from app.domain.stocks.service import backfill_daily_candles, backfill_minute_candles
 from app.domain.stocks.websocket import handle_market_websocket
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
+
+
+@router.get("", response_model=ApiResponse[list[Stock]])
+def list_stocks(db: Session = Depends(get_db)):
+    # ponytail: merge conflict 정리하면서 원래 있던 5종목 마스터 목록 엔드포인트가
+    # 이 라우터 전체 교체로 빠져 있길래 복구 — 하드코딩 대신 실 DB 기준으로.
+    rows = db.scalars(select(StockModel).order_by(StockModel.id)).all()
+    return ApiResponse.ok([Stock.model_validate(row, from_attributes=True) for row in rows])
 
 
 @router.websocket("/ws")
