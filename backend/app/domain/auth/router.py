@@ -1,8 +1,9 @@
+import logging
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlencode
 
 import httpx
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,6 +22,7 @@ from app.domain.auth.models import KakaoToken, User
 from app.domain.auth.schemas import RefreshRequest, TokenResponse
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+logger = logging.getLogger(__name__)
 
 KAKAO_AUTHORIZE_URL = "https://kauth.kakao.com/oauth/authorize"
 KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token"
@@ -53,14 +55,27 @@ def kakao_callback(code: str, db: Session = Depends(get_db)) -> RedirectResponse
         token_data["client_secret"] = settings.kakao_client_secret
 
     token_res = httpx.post(KAKAO_TOKEN_URL, data=token_data)
-    token_res.raise_for_status()
+    if token_res.status_code >= 400:
+        # 카카오가 에러 이유를 body에 넣어주는데 raise_for_status()만 부르면 그게 로그에
+        # 안 남아서 그냥 500만 보임 — 원인(코드 만료/재사용, client_secret 필요 등)을
+        # 바로 알 수 있게 body를 그대로 로그에 남기고 클라이언트에도 보여준다.
+        logger.error("카카오 토큰 교환 실패(%s): %s", token_res.status_code, token_res.text)
+        raise HTTPException(
+            status_code=400,
+            detail=f"카카오 토큰 교환 실패: {token_res.text}",
+        )
     kakao_tokens = token_res.json()
 
     profile_res = httpx.get(
         KAKAO_USER_ME_URL,
         headers={"Authorization": f"Bearer {kakao_tokens['access_token']}"},
     )
-    profile_res.raise_for_status()
+    if profile_res.status_code >= 400:
+        logger.error("카카오 프로필 조회 실패(%s): %s", profile_res.status_code, profile_res.text)
+        raise HTTPException(
+            status_code=400,
+            detail=f"카카오 프로필 조회 실패: {profile_res.text}",
+        )
     kakao_user_id = profile_res.json()["id"]
 
     kakao_token = db.scalar(select(KakaoToken).where(KakaoToken.kakao_user_id == kakao_user_id))
