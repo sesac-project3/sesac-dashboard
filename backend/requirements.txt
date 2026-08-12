@@ -11,3 +11,6 @@ pyjwt==2.11.0
 faster-whisper==1.2.1
 openai==2.53.0
 python-multipart==0.0.20
+
+# ISSUE-E3: S3 사전 저장 배경 영상 조회
+boto3==1.43.69

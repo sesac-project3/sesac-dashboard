@@ -8,11 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
+from app.common.s3 import get_shortform_video_url
 from app.common.security import get_current_user_id
 from app.core.database import get_db
 from app.domain.shortforms.models import Shortform as ShortformModel
 from app.domain.shortforms.models import ShortformLike
-from app.domain.shortforms.schemas import LikeToggleResponse
+from app.domain.shortforms.schemas import BackgroundVideoResponse, LikeToggleResponse
 from app.domain.shortforms.schemas import Shortform as ShortformSchema
 from app.domain.stocks.models import Stock
 from app.domain.stt.service import (
@@ -38,6 +39,18 @@ def _to_schema(row: ShortformModel, stock: Stock) -> ShortformSchema:
     )
 
 
+@router.get("/background-video", response_model=ApiResponse[BackgroundVideoResponse])
+def get_background_video(stock_code: str, sentiment: Literal["긍정", "부정"], db: Session = Depends(get_db)):
+    """ISSUE-E3: `{종목명}_positive.mp4` / `{종목명}_negative.mp4` 네이밍으로 S3에
+    올려둔 배경 영상을 조회만 한다 (숏폼 생성과 별개로 바로 테스트하고 싶을 때용)."""
+    stock = db.scalar(select(Stock).where(Stock.code == stock_code))
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"stock_code={stock_code} 없음")
+
+    video_url = get_shortform_video_url(stock.name, sentiment)
+    return ApiResponse.ok(BackgroundVideoResponse(videoUrl=video_url))
+
+
 @router.get("", response_model=ApiResponse[list[ShortformSchema]])
 def list_shortforms(db: Session = Depends(get_db)):
     rows = db.execute(
@@ -57,12 +70,16 @@ async def create_shortform(
     db: Session = Depends(get_db),
 ):
     """뉴스 영상/음성을 업로드하면 whisper로 자막을 뽑고 3줄 요약까지 붙여 숏폼을 만든다
-    (ISSUE-E1 STT + ISSUE-E2 피드 데이터 결합). 실제 영상 합성(ISSUE-E3, S3 오버레이)은
-    별도 이슈 — video_url이 없으면 자막 텍스트만 있는 상태로 저장된다(PRD §6 폴백안).
+    (ISSUE-E1 STT + ISSUE-E2 피드 데이터 결합). video_url을 직접 안 넘기면 S3에 미리
+    올려둔 `{종목명}_positive|negative.mp4` 배경 영상을 자동으로 찾아 채운다(ISSUE-E3).
+    S3에도 없으면 빈 문자열로 저장되고 프론트가 자막 카드로 폴백한다(PRD §6).
     """
     stock = db.scalar(select(Stock).where(Stock.code == stock_code))
     if stock is None:
         raise HTTPException(status_code=404, detail=f"stock_code={stock_code} 없음")
+
+    if not video_url:
+        video_url = get_shortform_video_url(stock.name, sentiment) or ""
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="file name is required")

@@ -18,3 +18,7 @@ class Shortform(BaseModel):
 class LikeToggleResponse(BaseModel):
     liked: bool
     likeCount: int
+
+
+class BackgroundVideoResponse(BaseModel):
+    videoUrl: str | None

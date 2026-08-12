@@ -38,11 +38,12 @@ class Settings(BaseSettings):
     # --- LLM (F-03/F-05 분류·요약) ---
     openai_api_key: str = ""
 
-    # --- F-02 숏폼 배경 영상 저장 ---
+    # --- F-02 숏폼 배경 영상 저장 (ISSUE-E3) ---
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
     aws_region: str = "ap-northeast-2"
     aws_s3_bucket: str = ""
+    aws_s3_endpoint_url: str | None = None  # 로컬 개발/테스트용 MinIO 등. 실 AWS면 비워둘 것
 
     # --- F-04, 보류 중이지만 재개 대비 자리만 유지 (PRODUCT.md ISSUE-E4) ---
     telegram_bot_token: str = ""
