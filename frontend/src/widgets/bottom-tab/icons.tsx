@@ -34,7 +34,7 @@ export function ShortformIcon({ className }: IconProps) {
 export function WatchlistIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">
-      <path d="M12 20s-7.5-4.6-10-9.1C.5 7.7 2 4.5 5.3 4.1c1.9-.2 3.6.8 4.7 2.4 1.1-1.6 2.8-2.6 4.7-2.4 3.3.4 4.8 3.6 3.3 6.8C19.5 15.4 12 20 12 20Z" />
+      <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
     </svg>
   );
 }
