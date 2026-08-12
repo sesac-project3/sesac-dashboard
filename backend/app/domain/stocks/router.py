@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, WebSocket
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
@@ -10,8 +10,14 @@ from app.core.database import get_db
 from app.domain.stocks.chart_service import get_candles
 from app.domain.stocks.schemas import CandleBackfillResponse, CandleResponse, MarketIndex, Stock
 from app.domain.stocks.service import backfill_daily_candles
+from app.domain.stocks.websocket import handle_market_websocket
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
+
+
+@router.websocket("/ws")
+async def market_websocket(websocket: WebSocket, token: str | None = None):
+    await handle_market_websocket(websocket, token)
 
 
 @router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])
