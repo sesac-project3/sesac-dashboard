@@ -9,7 +9,9 @@ from app.core.database import Base, TimestampMixin
 
 
 class News(Base, TimestampMixin):
-    __tablename__ = "news"
+    # ponytail: 실제 배포된 테이블명은 data_source (팀원 크롤러가 이 이름으로 이미 115k+행 적재함).
+    # SCHEMA.md/schema.sql 설계 당시 이름은 news였지만, 라이브 DB를 바꾸는 대신 ORM 쪽을 맞춘다.
+    __tablename__ = "data_source"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     date: Mapped[date] = mapped_column(Date)
