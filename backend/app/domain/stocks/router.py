@@ -1,26 +1,47 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends, WebSocket
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
-from app.domain.stocks.schemas import MarketIndex, Stock
+from app.core.database import get_db
+from app.domain.stocks.chart_service import get_candles
+from app.domain.stocks.models import Stock as StockModel
+from app.domain.stocks.schemas import (
+    CandleBackfillResponse,
+    CandleResponse,
+    ChartInterval,
+    MarketIndex,
+    MinuteCandleBackfillResponse,
+    Stock,
+)
+from app.domain.stocks.service import backfill_daily_candles, backfill_minute_candles
+from app.domain.stocks.websocket import handle_market_websocket
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
-# seed.sql과 동일한 5종목. 실 시세는 ISSUE-A1(KIS 연동) 붙기 전까지 이 하드코딩으로 대체.
-_STOCKS = [
-    Stock(id=1, code="005930", name="삼성전자", market="KOSPI"),
-    Stock(id=2, code="000660", name="SK하이닉스", market="KOSPI"),
-    Stock(id=3, code="005380", name="현대자동차", market="KOSPI"),
-    Stock(id=4, code="373220", name="LG에너지솔루션", market="KOSPI"),
-    Stock(id=5, code="042660", name="한화오션", market="KOSPI"),
-]
-
 
 @router.get("", response_model=ApiResponse[list[Stock]])
-def list_stocks():
-    return ApiResponse.ok(_STOCKS)
+def list_stocks(db: Session = Depends(get_db)):
+    # ponytail: merge conflict 정리하면서 원래 있던 5종목 마스터 목록 엔드포인트가
+    # 이 라우터 전체 교체로 빠져 있길래 복구 — 하드코딩 대신 실 DB 기준으로.
+    rows = db.scalars(select(StockModel).order_by(StockModel.id)).all()
+    return ApiResponse.ok([Stock.model_validate(row, from_attributes=True) for row in rows])
 
+
+@router.websocket("/ws")
+async def market_websocket(websocket: WebSocket, token: str | None = None):
+    await handle_market_websocket(websocket, token)
+
+
+@router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])
+def candles(
+    stock_code: str,
+    interval: ChartInterval = "DAILY",
+    db: Session = Depends(get_db),
+):
+    return ApiResponse.ok(get_candles(db, stock_code, interval))
 
 @router.get("/market/indices", response_model=ApiResponse[list[MarketIndex]])
 def market_indices():
@@ -32,3 +53,19 @@ def market_indices():
         MarketIndex(indexType="USD_KRW", value=1380.5, recordedAt=now),
     ]
     return ApiResponse.ok(mock)
+
+
+@router.post("/admin/candles/backfill", response_model=ApiResponse[CandleBackfillResponse])
+def backfill_candles(db: Session = Depends(get_db)):
+    return ApiResponse.ok(backfill_daily_candles(db), message="최근 1년 일봉 백필이 완료되었습니다.")
+
+
+@router.post(
+    "/admin/minute-candles/backfill",
+    response_model=ApiResponse[MinuteCandleBackfillResponse],
+)
+def backfill_minute_candles_api(db: Session = Depends(get_db)):
+    return ApiResponse.ok(
+        backfill_minute_candles(db),
+        message="최근 거래일 1분봉 백필이 완료되었습니다.",
+    )

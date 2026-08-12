@@ -1,3 +1,6 @@
+import asyncio
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,10 +12,23 @@ from app.domain.news.router import router as news_router
 from app.domain.reports.router import router as reports_router
 from app.domain.shortforms.router import router as shortforms_router
 from app.domain.stocks.router import router as stocks_router
+from app.domain.stocks.websocket import restore_kis_subscriptions, subscribe_candle_events
 from app.domain.stt.router import router as stt_router
 from app.domain.telegram.router import router as telegram_router
 
-app = FastAPI(title="sesac-dashboard API")
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    stop_event = asyncio.Event()
+    subscriber_task = asyncio.create_task(subscribe_candle_events(stop_event))
+    await restore_kis_subscriptions()
+    try:
+        yield
+    finally:
+        stop_event.set()
+        await subscriber_task
+
+
+app = FastAPI(title="sesac-dashboard API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
