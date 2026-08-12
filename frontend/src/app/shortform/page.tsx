@@ -23,8 +23,8 @@ export default async function ShortformPage() {
   if (shortforms.length === 0) {
     return (
       <div className="p-4">
-        <h1 className="mb-4 text-lg font-semibold">숏폼</h1>
-        <p className="text-sm text-black/50">아직 준비된 영상이 없습니다.</p>
+        <h1 className="mb-4 text-[18px] font-semibold text-heading">숏폼</h1>
+        <p className="text-[14px] text-caption">아직 준비된 영상이 없습니다.</p>
       </div>
     );
   }
