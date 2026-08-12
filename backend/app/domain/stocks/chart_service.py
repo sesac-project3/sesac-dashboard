@@ -1,7 +1,6 @@
 from collections import OrderedDict
 from datetime import date, datetime
 import json
-from typing import Literal
 from zoneinfo import ZoneInfo
 
 from redis import Redis as SyncRedis
@@ -11,9 +10,8 @@ from sqlalchemy.orm import Session
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.config import settings
 from app.domain.stocks.models import Stock, StockDailyCandle, StockMinuteCandle
-from app.domain.stocks.schemas import Candle, CandleResponse
+from app.domain.stocks.schemas import Candle, CandleResponse, ChartInterval
 
-ChartInterval = Literal["DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"]
 _READ_COUNTS = {"DAILY": 40, "WEEKLY": 230, "MONTHLY": 400, "MINUTE_15": 500}
 _DISPLAY_COUNTS = {"DAILY": 30, "WEEKLY": 28, "MONTHLY": 12, "MINUTE_15": 30}
 KST = ZoneInfo("Asia/Seoul")

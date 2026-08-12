@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 
-from typing import Literal
-
 from fastapi import APIRouter, Depends, WebSocket
 from sqlalchemy.orm import Session
 
@@ -11,9 +9,9 @@ from app.domain.stocks.chart_service import get_candles
 from app.domain.stocks.schemas import (
     CandleBackfillResponse,
     CandleResponse,
+    ChartInterval,
     MarketIndex,
     MinuteCandleBackfillResponse,
-    Stock,
 )
 from app.domain.stocks.service import backfill_daily_candles, backfill_minute_candles
 from app.domain.stocks.websocket import handle_market_websocket
@@ -29,7 +27,7 @@ async def market_websocket(websocket: WebSocket, token: str | None = None):
 @router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])
 def candles(
     stock_code: str,
-    interval: Literal["DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"] = "DAILY",
+    interval: ChartInterval = "DAILY",
     db: Session = Depends(get_db),
 ):
     return ApiResponse.ok(get_candles(db, stock_code, interval))
