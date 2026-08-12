@@ -23,3 +23,5 @@ class StockReport(BaseModel):
     week52High: float | None = None
     week52Low: float | None = None
     currentPrice: float | None = None
+    valuationComment: str | None = None
+
