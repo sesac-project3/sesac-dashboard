@@ -91,6 +91,22 @@ export default function ShortformCard({
         />
       )}
 
+      {/* 리포트 요약 자막 — 영상 정중앙, 굵은 흰 글씨 + 검정 테두리(자막 밈 스타일).
+          지금은 데모라 aiInsight 첫 줄을 그대로 씀(이미 whisper+LLM으로 만든 실 데이터,
+          가짜 수치 아님) — 나중에 OpenAI로 리포트 요약을 따로 생성하면 그 결과로 교체.
+          article의 자식이라 카드가 스크롤될 때 영상과 같이 그 위치에서 이동한다(별도 처리 불필요). */}
+      <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 px-6 text-center">
+        <p
+          className="text-2xl leading-snug font-extrabold text-white"
+          style={{
+            textShadow:
+              "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 8px rgba(0,0,0,0.4)",
+          }}
+        >
+          {insightLines[0] ?? "AI 리포트 요약 준비 중"}
+        </p>
+      </div>
+
       {/* 상단: 종목/감성 배지 + AI INSIGHT 토글 버튼 (영상을 탭해도 같은 토글이 열림) */}
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <span className="rounded-full bg-black/40 px-2 py-1 text-xs">
