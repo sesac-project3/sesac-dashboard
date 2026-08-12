@@ -1,5 +1,8 @@
+import Link from "next/link";
 import { API_BASE_URL } from "@/shared/config/env";
 import type { MarketIndex } from "@/entities/stock/types";
+import PageContainer from "@/shared/ui/PageContainer";
+import StatCard from "@/shared/ui/StatCard";
 
 async function fetchIndices(): Promise<MarketIndex[] | null> {
   try {
@@ -25,21 +28,35 @@ export default async function HomePage() {
   const indices = await fetchIndices();
 
   return (
-    <div className="p-4">
-      <h1 className="mb-4 text-lg font-semibold">오늘의 시장</h1>
-      <div className="grid grid-cols-3 gap-3">
-        {(indices ?? []).map((index) => (
-          <div key={index.indexType} className="rounded-lg border border-black/10 p-3">
-            <p className="text-xs text-black/60">{LABELS[index.indexType]}</p>
-            <p className="text-base font-semibold">{index.value.toLocaleString()}</p>
-          </div>
-        ))}
-        {!indices && (
-          <p className="col-span-3 text-sm text-black/50">
-            시세를 불러오지 못했습니다. 잠시 후 다시 시도해주세요.
+    <PageContainer>
+      <h1 className="py-6 text-[18px] font-semibold text-heading">오늘의 시장</h1>
+
+      {indices ? (
+        <div className="grid grid-cols-3 gap-3">
+          {indices.map((index) => (
+            <StatCard
+              key={index.indexType}
+              label={LABELS[index.indexType]}
+              value={index.value.toLocaleString()}
+            />
+          ))}
+        </div>
+      ) : (
+        // DESIGN_SPEC.md §23.3 Error state
+        <div className="flex flex-col items-center gap-4 rounded-lg border border-border-soft bg-white py-12 text-center shadow-card">
+          <p className="text-[14px] text-caption">
+            데이터를 불러오지 못했어요.
+            <br />
+            잠시 후 다시 시도해주세요.
           </p>
-        )}
-      </div>
-    </div>
+          <Link
+            href="/"
+            className="rounded-sm bg-primary px-5 py-2.5 text-[14px] font-medium text-white active:scale-[0.98]"
+          >
+            다시 시도
+          </Link>
+        </div>
+      )}
+    </PageContainer>
   );
 }
