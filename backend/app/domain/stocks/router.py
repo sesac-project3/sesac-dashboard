@@ -29,7 +29,7 @@ async def market_websocket(websocket: WebSocket, token: str | None = None):
 @router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])
 def candles(
     stock_code: str,
-    interval: Literal["DAILY", "WEEKLY", "MONTHLY"] = "DAILY",
+    interval: Literal["DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"] = "DAILY",
     db: Session = Depends(get_db),
 ):
     return ApiResponse.ok(get_candles(db, stock_code, interval))

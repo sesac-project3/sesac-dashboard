@@ -53,7 +53,7 @@ class MinuteCandleBackfillResponse(BaseModel):
 
 
 class Candle(BaseModel):
-    timestamp: date
+    timestamp: datetime | date
     openPrice: float
     highPrice: float
     lowPrice: float
@@ -64,6 +64,6 @@ class Candle(BaseModel):
 class CandleResponse(BaseModel):
     stockCode: str
     stockName: str
-    interval: Literal["DAILY", "WEEKLY", "MONTHLY"]
-    source: Literal["DB"]
+    interval: Literal["DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"]
+    source: Literal["DB", "DB_REDIS"]
     candles: list[Candle]

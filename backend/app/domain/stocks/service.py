@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.kis import kis_token_client
+from app.core.database import SessionLocal
 from app.domain.stocks.models import Stock, StockDailyCandle, StockMinuteCandle
 from app.domain.stocks.schemas import (
     CandleBackfillResponse,
@@ -19,6 +20,47 @@ from app.domain.stocks.schemas import (
 KST = ZoneInfo("Asia/Seoul")
 MARKET_OPEN = "090000"
 MARKET_CLOSE = "153000"
+
+
+def persist_live_minute_candle(stock_code: str, message: dict[str, object]) -> None:
+    candle = message.get("candle")
+    if not isinstance(candle, dict):
+        return
+    timestamp = candle.get("timestamp")
+    if not isinstance(timestamp, str):
+        return
+
+    with SessionLocal() as db:
+        stock = db.scalar(select(Stock).where(Stock.code == stock_code))
+        if stock is None:
+            return
+        traded_at = datetime.fromisoformat(timestamp).astimezone(timezone.utc)
+        now = datetime.now(timezone.utc)
+        values = {
+            "stock_id": stock.id,
+            "traded_at": traded_at,
+            "open_price": float(candle["openPrice"]),
+            "high_price": float(candle["highPrice"]),
+            "low_price": float(candle["lowPrice"]),
+            "close_price": float(candle["closePrice"]),
+            "volume": int(candle["volume"]),
+            "created_at": now,
+            "updated_at": now,
+        }
+        stmt = insert(StockMinuteCandle).values(values)
+        stmt = stmt.on_conflict_do_update(
+            constraint="stock_minute_candles_stock_id_traded_at_key",
+            set_={
+                "open_price": stmt.excluded.open_price,
+                "high_price": stmt.excluded.high_price,
+                "low_price": stmt.excluded.low_price,
+                "close_price": stmt.excluded.close_price,
+                "volume": stmt.excluded.volume,
+                "updated_at": stmt.excluded.updated_at,
+            },
+        )
+        db.execute(stmt)
+        db.commit()
 
 
 def backfill_daily_candles(db: Session) -> CandleBackfillResponse:

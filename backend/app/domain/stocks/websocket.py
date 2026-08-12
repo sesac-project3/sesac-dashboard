@@ -14,6 +14,7 @@ MARKET_CANDLE_CHANNEL_PATTERN = f"{MARKET_CANDLE_CHANNEL_PREFIX}*"
 MARKET_CANDLE_SNAPSHOT_PREFIX = "market:candle:state:"
 MARKET_CANDLE_SNAPSHOT_TTL_SECONDS = 2 * 24 * 60 * 60
 MARKET_SUBSCRIBERS_PREFIX = "market:subscribers:"
+MARKET_MINUTE_CANDLE_PREFIX = "market:minute-candles:"
 
 
 class MarketWebSocketManager:
@@ -102,6 +103,19 @@ class MarketWebSocketManager:
         redis = Redis.from_url(settings.redis_url, decode_responses=True)
         try:
             payload = json.dumps(message, ensure_ascii=False)
+            candle = message.get("candle", {})
+            timestamp = candle.get("timestamp") if isinstance(candle, dict) else None
+            if message.get("interval") == "MINUTE_1" and isinstance(timestamp, str):
+                traded_date = timestamp[:10].replace("-", "")
+                await redis.hset(
+                    f"{MARKET_MINUTE_CANDLE_PREFIX}{stock_code}:{traded_date}",
+                    timestamp,
+                    payload,
+                )
+                await redis.expire(
+                    f"{MARKET_MINUTE_CANDLE_PREFIX}{stock_code}:{traded_date}",
+                    MARKET_CANDLE_SNAPSHOT_TTL_SECONDS,
+                )
             await redis.set(
                 f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}",
                 payload,
@@ -119,6 +133,24 @@ class MarketWebSocketManager:
         try:
             payload = await redis.get(f"{MARKET_CANDLE_SNAPSHOT_PREFIX}{stock_code}")
             return json.loads(payload) if payload else None
+        finally:
+            await redis.aclose()
+
+    async def get_minute_candle_messages(
+        self,
+        stock_code: str,
+        traded_date: str,
+    ) -> list[dict[str, object]]:
+        redis = Redis.from_url(settings.redis_url, decode_responses=True)
+        try:
+            values = await redis.hvals(
+                f"{MARKET_MINUTE_CANDLE_PREFIX}{stock_code}:{traded_date}"
+            )
+            messages = [json.loads(value) for value in values]
+            return sorted(
+                messages,
+                key=lambda message: str(message.get("candle", {}).get("timestamp", "")),
+            )
         finally:
             await redis.aclose()
 

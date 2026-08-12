@@ -2,12 +2,13 @@ import asyncio
 import json
 import logging
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import websockets
 
 from app.core.kis import kis_token_client
+from app.domain.stocks.service import persist_live_minute_candle
 from app.domain.stocks.websocket import MarketWebSocketManager
 
 logger = logging.getLogger(__name__)
@@ -18,8 +19,8 @@ KST = ZoneInfo("Asia/Seoul")
 
 
 @dataclass
-class LiveDailyCandle:
-    trade_date: date
+class LiveMinuteCandle:
+    traded_at: datetime
     open_price: int
     high_price: int
     low_price: int
@@ -30,15 +31,15 @@ class LiveDailyCandle:
         self.high_price = max(self.high_price, price)
         self.low_price = min(self.low_price, price)
         self.close_price = price
-        self.volume = volume
+        self.volume += volume
 
     def as_message(self, stock_code: str) -> dict[str, object]:
         return {
             "type": "candle_update",
             "stockCode": stock_code,
-            "interval": "DAILY",
+            "interval": "MINUTE_1",
             "candle": {
-                "timestamp": self.trade_date.isoformat(),
+                "timestamp": self.traded_at.isoformat(),
                 "openPrice": self.open_price,
                 "highPrice": self.high_price,
                 "lowPrice": self.low_price,
@@ -55,7 +56,7 @@ class KisMarketStream:
         self._connection = None
         self._task: asyncio.Task[None] | None = None
         self._subscribed_codes: set[str] = set()
-        self._candles: dict[str, LiveDailyCandle] = {}
+        self._candles: dict[str, LiveMinuteCandle] = {}
         self._lock = asyncio.Lock()
 
     async def subscribe(self, stock_code: str) -> None:
@@ -72,11 +73,11 @@ class KisMarketStream:
         if not isinstance(candle, dict):
             return
         try:
-            trade_date = date.fromisoformat(str(candle["timestamp"]))
-            if trade_date != datetime.now(KST).date():
+            traded_at = datetime.fromisoformat(str(candle["timestamp"]))
+            if traded_at.astimezone(KST).date() != datetime.now(KST).date():
                 return
-            self._candles[stock_code] = LiveDailyCandle(
-                trade_date=trade_date,
+            self._candles[stock_code] = LiveMinuteCandle(
+                traded_at=traded_at,
                 open_price=int(candle["openPrice"]),
                 high_price=int(candle["highPrice"]),
                 low_price=int(candle["lowPrice"]),
@@ -95,6 +96,13 @@ class KisMarketStream:
             await self._send_subscription(connection, stock_code, "2")
             if not has_subscriptions:
                 await connection.close()
+        candle = self._candles.pop(stock_code, None)
+        if candle is not None:
+            await asyncio.to_thread(
+                persist_live_minute_candle,
+                stock_code,
+                candle.as_message(stock_code),
+            )
 
     async def _run(self) -> None:
         try:
@@ -152,10 +160,16 @@ class KisMarketStream:
         volume = _to_int(values[13])
         if price <= 0:
             return
-        today = datetime.now(KST).date()
+        traded_at = _minute_bucket(datetime.now(KST))
         candle = self._candles.get(stock_code)
-        if candle is None or candle.trade_date != today:
-            candle = LiveDailyCandle(today, price, price, price, price, volume)
+        if candle is not None and candle.traded_at != traded_at:
+            await asyncio.to_thread(
+                persist_live_minute_candle,
+                stock_code,
+                candle.as_message(stock_code),
+            )
+        if candle is None or candle.traded_at != traded_at:
+            candle = LiveMinuteCandle(traded_at, price, price, price, price, volume)
             self._candles[stock_code] = candle
         else:
             candle.update(price, volume)
@@ -167,3 +181,7 @@ def _to_int(value: str) -> int:
         return int(value.replace(",", ""))
     except (TypeError, ValueError):
         return 0
+
+
+def _minute_bucket(value: datetime) -> datetime:
+    return value.replace(second=0, microsecond=0)
