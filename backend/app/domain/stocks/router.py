@@ -8,8 +8,14 @@ from sqlalchemy.orm import Session
 from app.common.response import ApiResponse
 from app.core.database import get_db
 from app.domain.stocks.chart_service import get_candles
-from app.domain.stocks.schemas import CandleBackfillResponse, CandleResponse, MarketIndex, Stock
-from app.domain.stocks.service import backfill_daily_candles
+from app.domain.stocks.schemas import (
+    CandleBackfillResponse,
+    CandleResponse,
+    MarketIndex,
+    MinuteCandleBackfillResponse,
+    Stock,
+)
+from app.domain.stocks.service import backfill_daily_candles, backfill_minute_candles
 from app.domain.stocks.websocket import handle_market_websocket
 
 router = APIRouter(prefix="/stocks", tags=["stocks"])
@@ -43,3 +49,14 @@ def market_indices():
 @router.post("/admin/candles/backfill", response_model=ApiResponse[CandleBackfillResponse])
 def backfill_candles(db: Session = Depends(get_db)):
     return ApiResponse.ok(backfill_daily_candles(db), message="최근 1년 일봉 백필이 완료되었습니다.")
+
+
+@router.post(
+    "/admin/minute-candles/backfill",
+    response_model=ApiResponse[MinuteCandleBackfillResponse],
+)
+def backfill_minute_candles_api(db: Session = Depends(get_db)):
+    return ApiResponse.ok(
+        backfill_minute_candles(db),
+        message="최근 거래일 1분봉 백필이 완료되었습니다.",
+    )

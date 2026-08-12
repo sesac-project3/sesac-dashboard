@@ -38,6 +38,20 @@ class CandleBackfillResponse(BaseModel):
     results: list[CandleBackfillResult]
 
 
+class MinuteCandleBackfillResult(BaseModel):
+    stockCode: str
+    stockName: str
+    receivedMinuteCount: int
+    upsertedMinuteCount: int
+
+
+class MinuteCandleBackfillResponse(BaseModel):
+    stockCount: int
+    totalReceivedMinuteCount: int
+    totalUpsertedMinuteCount: int
+    results: list[MinuteCandleBackfillResult]
+
+
 class Candle(BaseModel):
     timestamp: date
     openPrice: float

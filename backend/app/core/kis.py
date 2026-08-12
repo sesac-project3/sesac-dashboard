@@ -8,7 +8,7 @@ import httpx
 
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.config import settings
-from app.core.kis_endpoints import DAILY_CANDLE_PATH
+from app.core.kis_endpoints import DAILY_CANDLE_PATH, MINUTE_CANDLE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,52 @@ class KisTokenClient:
         if body.get("rt_cd") not in (None, "0"):
             logger.error(
                 "KIS daily candle API returned an error: rt_cd=%s, msg_cd=%s, msg=%s",
+                body.get("rt_cd"),
+                body.get("msg_cd"),
+                body.get("msg1"),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+        return body.get("output2", [])
+
+    def minute_candles(
+        self,
+        stock_code: str,
+        input_date: str,
+        input_time: str,
+    ) -> list[dict[str, str]]:
+        response = httpx.get(
+            f"{settings.kis_base_url.rstrip('/')}{MINUTE_CANDLE_PATH}",
+            params={
+                "fid_etc_cls_code": "",
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": stock_code,
+                "fid_input_date_1": input_date,
+                "fid_input_hour_1": input_time,
+                "fid_pw_data_incu_yn": "Y",
+            },
+            headers={
+                "authorization": f"Bearer {self.access_token()}",
+                "appkey": settings.kis_app_key,
+                "appsecret": settings.kis_app_secret,
+                "tr_id": "FHKST03010200",
+                "custtype": "P",
+            },
+            timeout=20.0,
+        )
+        try:
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.error(
+                "KIS minute candle request failed: %s, body=%s",
+                _http_error_summary(response, exc),
+                _response_error_body(response),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+        if body.get("rt_cd") not in (None, "0"):
+            logger.error(
+                "KIS minute candle API returned an error: rt_cd=%s, msg_cd=%s, msg=%s",
                 body.get("rt_cd"),
                 body.get("msg_cd"),
                 body.get("msg1"),

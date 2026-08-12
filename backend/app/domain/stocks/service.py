@@ -8,8 +8,17 @@ from sqlalchemy.orm import Session
 
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.kis import kis_token_client
-from app.domain.stocks.models import Stock, StockDailyCandle
-from app.domain.stocks.schemas import CandleBackfillResponse, CandleBackfillResult
+from app.domain.stocks.models import Stock, StockDailyCandle, StockMinuteCandle
+from app.domain.stocks.schemas import (
+    CandleBackfillResponse,
+    CandleBackfillResult,
+    MinuteCandleBackfillResponse,
+    MinuteCandleBackfillResult,
+)
+
+KST = ZoneInfo("Asia/Seoul")
+MARKET_OPEN = "090000"
+MARKET_CLOSE = "153000"
 
 
 def backfill_daily_candles(db: Session) -> CandleBackfillResponse:
@@ -66,6 +75,131 @@ def backfill_daily_candles(db: Session) -> CandleBackfillResponse:
         totalUpdatedCount=sum(r.updatedCount for r in results),
         results=results,
     )
+
+
+def backfill_minute_candles(db: Session) -> MinuteCandleBackfillResponse:
+    now = datetime.now(KST)
+    stocks = db.scalars(select(Stock).order_by(Stock.code)).all()
+    results: list[MinuteCandleBackfillResult] = []
+
+    for stock in stocks:
+        minute_rows = _fetch_latest_minute_range(stock.code, now)
+        candles = [_to_minute_candle(stock.id, row) for row in minute_rows]
+        if candles:
+            stmt = insert(StockMinuteCandle).values(candles)
+            stmt = stmt.on_conflict_do_update(
+                constraint="stock_minute_candles_stock_id_traded_at_key",
+                set_={
+                    "open_price": stmt.excluded.open_price,
+                    "high_price": stmt.excluded.high_price,
+                    "low_price": stmt.excluded.low_price,
+                    "close_price": stmt.excluded.close_price,
+                    "volume": stmt.excluded.volume,
+                    "updated_at": stmt.excluded.updated_at,
+                },
+            )
+            db.execute(stmt)
+            db.commit()
+
+        results.append(MinuteCandleBackfillResult(
+            stockCode=stock.code,
+            stockName=stock.name,
+            receivedMinuteCount=len(minute_rows),
+            upsertedMinuteCount=len(candles),
+        ))
+
+    return MinuteCandleBackfillResponse(
+        stockCount=len(results),
+        totalReceivedMinuteCount=sum(r.receivedMinuteCount for r in results),
+        totalUpsertedMinuteCount=sum(r.upsertedMinuteCount for r in results),
+        results=results,
+    )
+
+
+def _fetch_latest_minute_range(stock_code: str, now: datetime) -> list[dict[str, str]]:
+    input_time = min(now.strftime("%H%M%S"), MARKET_CLOSE)
+    for days_ago in range(8):
+        target_date = now.date() - timedelta(days=days_ago)
+        rows = _fetch_minute_range(
+            stock_code,
+            target_date.strftime("%Y%m%d"),
+            input_time if days_ago == 0 else MARKET_CLOSE,
+        )
+        if rows:
+            return rows
+    return []
+
+
+def _fetch_minute_range(
+    stock_code: str,
+    input_date: str,
+    input_time: str,
+) -> list[dict[str, str]]:
+    rows_by_timestamp: dict[tuple[str, str], dict[str, str]] = {}
+    cursor = input_time
+
+    for _ in range(5):
+        rows = _minute_request_with_backoff(stock_code, input_date, cursor)
+        if not rows:
+            break
+
+        for row in rows:
+            key = (row.get("stck_bsop_date", ""), row.get("stck_cntg_hour", ""))
+            if all(key) and key[0] == input_date:
+                rows_by_timestamp[key] = row
+
+        oldest = min(
+            (row for row in rows if row.get("stck_bsop_date") and row.get("stck_cntg_hour")),
+            key=lambda row: (row["stck_bsop_date"], row["stck_cntg_hour"]),
+            default=None,
+        )
+        if oldest is None or oldest["stck_cntg_hour"] <= MARKET_OPEN:
+            break
+
+        oldest_at = datetime.strptime(
+            f"{oldest['stck_bsop_date']} {oldest['stck_cntg_hour']}",
+            "%Y%m%d %H%M%S",
+        )
+        cursor = (oldest_at - timedelta(seconds=1)).strftime("%H%M%S")
+
+    return [rows_by_timestamp[key] for key in sorted(rows_by_timestamp)]
+
+
+def _minute_request_with_backoff(
+    stock_code: str,
+    input_date: str,
+    input_time: str,
+) -> list[dict[str, str]]:
+    for attempt in range(3):
+        if attempt:
+            time.sleep(2 ** attempt)
+        else:
+            time.sleep(0.5)
+        try:
+            return kis_token_client.minute_candles(stock_code, input_date, input_time)
+        except BusinessException as exc:
+            if exc.error_code != ErrorCode.SERVICE_UNAVAILABLE or attempt == 2:
+                raise
+    raise RuntimeError("unreachable")
+
+
+def _to_minute_candle(stock_id: int, row: dict[str, str]) -> dict[str, object]:
+    traded_at = datetime.strptime(
+        f"{row['stck_bsop_date']} {row['stck_cntg_hour']}",
+        "%Y%m%d %H%M%S",
+    ).replace(tzinfo=KST).astimezone(timezone.utc)
+    now = datetime.now(timezone.utc)
+    return {
+        "stock_id": stock_id,
+        "traded_at": traded_at,
+        "open_price": float(row["stck_oprc"]),
+        "high_price": float(row["stck_hgpr"]),
+        "low_price": float(row["stck_lwpr"]),
+        "close_price": float(row["stck_prpr"]),
+        "volume": int(row.get("cntg_vol") or 0),
+        "created_at": now,
+        "updated_at": now,
+    }
 
 
 def _fetch_range(stock_code: str, start_date: date, end_date: date) -> list[dict[str, str]]:
