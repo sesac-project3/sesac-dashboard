@@ -1,11 +1,16 @@
 import json
+import logging
 from datetime import datetime, timedelta, timezone
 from threading import Lock
+from zoneinfo import ZoneInfo
 
 import httpx
 
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.config import settings
+from app.core.kis_endpoints import DAILY_CANDLE_PATH, MINUTE_CANDLE_PATH
+
+logger = logging.getLogger(__name__)
 
 
 class KisTokenClient:
@@ -46,6 +51,93 @@ class KisTokenClient:
     def websocket_url(self) -> str:
         return settings.kis_websocket_url
 
+    def daily_candles(self, stock_code: str, start_date: str, end_date: str) -> list[dict[str, str]]:
+        response = httpx.get(
+            f"{settings.kis_base_url.rstrip('/')}{DAILY_CANDLE_PATH}",
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": stock_code,
+                "fid_input_date_1": start_date,
+                "fid_input_date_2": end_date,
+                "fid_period_div_code": "D",
+                "fid_org_adj_prc": "1",
+            },
+            headers={
+                "authorization": f"Bearer {self.access_token()}",
+                "appkey": settings.kis_app_key,
+                "appsecret": settings.kis_app_secret,
+                "tr_id": "FHKST03010100",
+                "custtype": "P",
+            },
+            timeout=20.0,
+        )
+        try:
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.error(
+                "KIS daily candle request failed: %s, body=%s",
+                _http_error_summary(response, exc),
+                _response_error_body(response),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+        if body.get("rt_cd") not in (None, "0"):
+            logger.error(
+                "KIS daily candle API returned an error: rt_cd=%s, msg_cd=%s, msg=%s",
+                body.get("rt_cd"),
+                body.get("msg_cd"),
+                body.get("msg1"),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+        return body.get("output2", [])
+
+    def minute_candles(
+        self,
+        stock_code: str,
+        input_date: str,
+        input_time: str,
+    ) -> list[dict[str, str]]:
+        response = httpx.get(
+            f"{settings.kis_base_url.rstrip('/')}{MINUTE_CANDLE_PATH}",
+            params={
+                "fid_etc_cls_code": "",
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": stock_code,
+                "fid_input_date_1": input_date,
+                "fid_input_hour_1": input_time,
+                "fid_pw_data_incu_yn": "Y",
+            },
+            headers={
+                "authorization": f"Bearer {self.access_token()}",
+                "appkey": settings.kis_app_key,
+                "appsecret": settings.kis_app_secret,
+                "tr_id": "FHKST03010200",
+                "custtype": "P",
+            },
+            timeout=20.0,
+        )
+        try:
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.error(
+                "KIS minute candle request failed: %s, body=%s",
+                _http_error_summary(response, exc),
+                _response_error_body(response),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+        if body.get("rt_cd") not in (None, "0"):
+            logger.error(
+                "KIS minute candle API returned an error: rt_cd=%s, msg_cd=%s, msg=%s",
+                body.get("rt_cd"),
+                body.get("msg_cd"),
+                body.get("msg1"),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+        return body.get("output2", [])
+
     def _issue_token(self, now: datetime) -> str:
         if not settings.kis_app_key or not settings.kis_app_secret:
             raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
@@ -64,15 +156,48 @@ class KisTokenClient:
             response.raise_for_status()
             body = response.json()
         except (httpx.HTTPError, ValueError) as exc:
+            logger.error(
+                "KIS access token request failed: %s, body=%s",
+                _http_error_summary(response, exc),
+                _response_error_body(response),
+            )
             raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE) from exc
 
         if not body.get("access_token"):
+            logger.error(
+                "KIS access token response did not contain a token: rt_cd=%s, msg_cd=%s, msg=%s",
+                body.get("rt_cd"),
+                body.get("msg_cd"),
+                body.get("msg1"),
+            )
             raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
 
         self._access_token = body["access_token"]
-        expires_in = int(body.get("expires_in", 86400))
-        self._expires_at = now + timedelta(seconds=max(60, expires_in - 60))
+        self._expires_at = self._parse_expiry(body.get("access_token_token_expired"), now)
+        if self._expires_at is None:
+            expires_in = int(body.get("expires_in", 86400))
+            self._expires_at = now + timedelta(seconds=max(60, expires_in - 60))
+
+        logger.info(
+            "KIS access token issued successfully; expires_at=%s",
+            self._expires_at.isoformat(),
+        )
         return self._access_token
+
+    @staticmethod
+    def _parse_expiry(value: object, now: datetime) -> datetime | None:
+        if not isinstance(value, str) or not value:
+            return None
+
+        try:
+            expiry = datetime.strptime(value, "%Y-%m-%d %H:%M:%S").replace(
+                tzinfo=ZoneInfo("Asia/Seoul")
+            ).astimezone(timezone.utc)
+        except ValueError:
+            return None
+
+        # 만료 직전 재발급을 피하기 위해 1분 여유를 둔다.
+        return max(now + timedelta(seconds=60), expiry - timedelta(minutes=1))
 
     def _issue_approval_key(self, now: datetime) -> str:
         if not settings.kis_app_key or not settings.kis_app_secret:
@@ -114,3 +239,12 @@ class KisTokenClient:
 
 kis_token_client = KisTokenClient()
 
+
+def _http_error_summary(response: httpx.Response, exc: Exception) -> str:
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"status={response.status_code}"
+    return type(exc).__name__
+
+
+def _response_error_body(response: httpx.Response) -> str:
+    return response.text[:500].replace("\n", " ")
