@@ -85,7 +85,7 @@ export default function OnboardingCarousel() {
 
   return (
     <div className="flex flex-1 flex-col">
-      <div className="flex flex-1 snap-x snap-mandatory overflow-x-auto">
+      <div className="no-scrollbar flex flex-1 snap-x snap-mandatory overflow-x-auto">
         {SLIDES.map((slide, i) => (
           <div
             key={i}
