@@ -26,12 +26,17 @@ router = APIRouter(prefix="/shortforms", tags=["shortforms"])
 
 
 def _to_schema(row: ShortformModel, stock: Stock) -> ShortformSchema:
+    # S3 presigned URL은 1시간 뒤 만료된다 — 생성 시점 값을 DB에 저장해두고 그대로 돌려주면
+    # 언젠간 반드시 깨진다. 그래서 조회마다 S3에서 새로 발급하고, S3에 없을 때만
+    # row.video_url(수동으로 넣어둔 외부 URL 등)을 폴백으로 쓴다.
+    video_url = get_shortform_video_url(stock.name, row.sentiment) or row.video_url
+
     return ShortformSchema(
         id=row.id,
         stockCode=stock.code,
         stockName=stock.name,
         sentiment=row.sentiment,
-        videoUrl=row.video_url,
+        videoUrl=video_url,
         subtitleText=row.subtitle_text,
         aiInsight=row.ai_insight,
         likeCount=row.like_count,
@@ -70,16 +75,14 @@ async def create_shortform(
     db: Session = Depends(get_db),
 ):
     """뉴스 영상/음성을 업로드하면 whisper로 자막을 뽑고 3줄 요약까지 붙여 숏폼을 만든다
-    (ISSUE-E1 STT + ISSUE-E2 피드 데이터 결합). video_url을 직접 안 넘기면 S3에 미리
-    올려둔 `{종목명}_positive|negative.mp4` 배경 영상을 자동으로 찾아 채운다(ISSUE-E3).
-    S3에도 없으면 빈 문자열로 저장되고 프론트가 자막 카드로 폴백한다(PRD §6).
+    (ISSUE-E1 STT + ISSUE-E2 피드 데이터 결합). video_url은 보통 비워서 보내면 되고,
+    S3의 `{종목명}_positive|negative.mp4` 배경 영상은 조회할 때마다 매번 새로 찾는다
+    (ISSUE-E3) — presigned URL은 만료되므로 생성 시점에 한 번 구해서 저장해두지 않는다.
+    video_url을 굳이 채워 보내면 S3에 해당 영상이 없을 때만 폴백으로 쓰인다.
     """
     stock = db.scalar(select(Stock).where(Stock.code == stock_code))
     if stock is None:
         raise HTTPException(status_code=404, detail=f"stock_code={stock_code} 없음")
-
-    if not video_url:
-        video_url = get_shortform_video_url(stock.name, sentiment) or ""
 
     if not file.filename:
         raise HTTPException(status_code=400, detail="file name is required")
