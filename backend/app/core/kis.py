@@ -8,7 +8,7 @@ import httpx
 
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.config import settings
-from app.core.kis_endpoints import DAILY_CANDLE_PATH, MINUTE_CANDLE_PATH
+from app.core.kis_endpoints import CURRENT_PRICE_PATH, DAILY_CANDLE_PATH, MINUTE_CANDLE_PATH
 
 logger = logging.getLogger(__name__)
 
@@ -203,6 +203,37 @@ class KisTokenClient:
             )
             raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
         return body.get("output2", [])
+
+    def current_price(self, stock_code: str) -> dict[str, str]:
+        response = httpx.get(
+            f"{settings.kis_base_url.rstrip('/')}{CURRENT_PRICE_PATH}",
+            params={
+                "fid_cond_mrkt_div_code": "J",
+                "fid_input_iscd": stock_code,
+            },
+            headers={
+                "authorization": f"Bearer {self.access_token()}",
+                "appkey": settings.kis_app_key,
+                "appsecret": settings.kis_app_secret,
+                "tr_id": "FHKST01010100",
+                "custtype": "P",
+            },
+            timeout=20.0,
+        )
+        try:
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.error(
+                "KIS current price request failed: %s, body=%s",
+                _http_error_summary(response, exc),
+                _response_error_body(response),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+        if body.get("rt_cd") not in (None, "0"):
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+        return body.get("output", {})
 
     def _issue_token(self, now: datetime) -> str:
 
