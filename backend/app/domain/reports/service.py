@@ -3,11 +3,32 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domain.reports.schemas import FinancialRow, PeerComparisonRow, StockReport
+from app.domain.reports.schemas import FinancialRow, PeerComparisonRow, StockReport, NewsItem
 from app.domain.reports.scoring import (
     analyze_financial_trends,
     calculate_risk_scores,
     calculate_valuation_band,
 )
+
+def extract_publisher(url: str | None) -> str:
+    if not url:
+        return "주요 언론사"
+    if "mk.co.kr" in url:
+        return "매일경제"
+    if "hankyung.com" in url:
+        return "한국경제"
+    if "chosun.com" in url:
+        return "조선비즈"
+    if "etnews.com" in url:
+        return "전자신문"
+    if "mt.co.kr" in url:
+        return "머니투데이"
+    if "enewstoday.co.kr" in url:
+        return "이뉴스투데이"
+    if "goodkyung.com" in url:
+        return "굿모닝경제"
+    return "주요 언론사"
+
 
 # 5종목 동종 업계 기본 데이터 (F-03-5)
 PEER_GROUPS = {
@@ -155,6 +176,66 @@ class ReportService:
             for row in reversed(fin_rows)
         ]
 
+        # 5. 최신 뉴스 및 감성 라벨 수집 (F-03-4): 긍정, 부정, 중립 감성 우선 조합 후 3개 보충
+        news_rows = db.execute(
+            text("""
+                SELECT d.id, d.headline, d.url, d.created_at,
+                       COALESCE(s.sentiment, '중립') AS sentiment
+                FROM data_source d
+                LEFT JOIN sentiment_analysis s
+                       ON d.stock_id = s.stock_id AND DATE(d.created_at) = s.date
+                WHERE d.stock_id = :stock_id AND d.source_type = '뉴스'
+                ORDER BY d.created_at DESC
+                LIMIT 30
+            """),
+            {"stock_id": stock_id},
+        ).fetchall()
+
+        selected_rows = []
+        used_ids = set()
+
+        # A. 긍정, 부정, 중립 1개씩 우선 수집
+        for target_sent in ["긍정", "부정", "중립"]:
+            for r in news_rows:
+                if r.id not in used_ids and r.sentiment == target_sent:
+                    selected_rows.append(r)
+                    used_ids.add(r.id)
+                    break
+
+        # B. 긍정/부정/중립 중 없는 감성이 있다면 최신순으로 추가 채워서 3개 보장
+        if len(selected_rows) < 3:
+            for r in news_rows:
+                if r.id not in used_ids:
+                    selected_rows.append(r)
+                    used_ids.add(r.id)
+                    if len(selected_rows) == 3:
+                        break
+
+        latest_news = []
+        now = datetime.now(timezone.utc)
+        for row in selected_rows:
+            diff_hours = max(1, int((now - row.created_at.replace(tzinfo=timezone.utc)).total_seconds() // 3600)) if row.created_at else 2
+            sent_label = row.sentiment if row.sentiment in ["긍정", "부정", "중립"] else "중립"
+            
+            raw_headline = str(row.headline or "").strip()
+            clean_title = raw_headline.split("\n")[0][:75] + ("..." if len(raw_headline) > 75 else "")
+            pub_name = extract_publisher(row.url)
+
+            latest_news.append(
+                NewsItem(
+                    id=int(row.id),
+                    title=clean_title,
+                    publisher=pub_name,
+                    publishedAt=f"{diff_hours}시간 전",
+                    sentiment=sent_label,
+                    url=row.url,
+                )
+            )
+
+
+        if not latest_news:
+            latest_news = DEFAULT_NEWS.get(stock_code, [])
+
         latest_opm = float(fin_rows[0].operating_margin) if fin_rows else 10.0
 
         # 60일 종가 기준 리스크 스코어 계산 (F-03-3)
@@ -183,6 +264,7 @@ class ReportService:
             growthGrade=growth_g,
             profitabilityGrade=profit_g,
             financials=financials,
+            latestNews=latest_news,
             riskScores=risk_scores,
             peerComparison=PEER_GROUPS.get(stock_code, []),
             week52High=week52_high,

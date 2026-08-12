@@ -16,6 +16,15 @@ class FinancialRow(BaseModel):
     operatingMargin: float
 
 
+class NewsItem(BaseModel):
+    id: int
+    title: str
+    publisher: str
+    publishedAt: str
+    sentiment: Literal["긍정", "부정", "중립"]
+    url: str | None = None
+
+
 class StockReport(BaseModel):
     stockCode: str
     reportDate: str
@@ -27,6 +36,7 @@ class StockReport(BaseModel):
     growthGrade: Literal["양호", "보통", "낮음"] | None = None
     profitabilityGrade: Literal["양호", "보통", "낮음"] | None = None
     financials: list[FinancialRow] | None = None
+    latestNews: list[NewsItem] | None = None
     riskScores: dict[str, float] | None = None
     peerComparison: list[PeerComparisonRow] | None = None
     week52High: float | None = None
