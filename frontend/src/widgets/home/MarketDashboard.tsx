@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import PageContainer from "@/shared/ui/PageContainer";
+import HomeLoadingScreen from "@/widgets/home/HomeLoadingScreen";
 import MarketIndexCarousel from "@/widgets/home/MarketIndexCarousel";
 import AiMarketIssueCard from "@/widgets/home/AiMarketIssueCard";
 import StockRankingSection from "@/widgets/home/StockRankingSection";
@@ -49,14 +50,7 @@ export default function MarketDashboard() {
   }, [load]);
 
   if (!data && !error) {
-    return (
-      <PageContainer>
-        <div className="flex flex-col gap-4 py-4 pb-12">
-          <div className="h-[180px] animate-pulse rounded-lg bg-surface" />
-          <div className="h-[300px] animate-pulse rounded-lg bg-surface" />
-        </div>
-      </PageContainer>
-    );
+    return <HomeLoadingScreen />;
   }
 
   if (!data) {
