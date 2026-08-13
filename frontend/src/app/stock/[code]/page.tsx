@@ -1,7 +1,10 @@
+import StockChartPanel from "@/features/stock-chart/StockChartPanel";
+import { Heart, Sparkles, Triangle } from "lucide-react";
 import { API_BASE_URL } from "@/shared/config/env";
 import type { StockReport } from "@/entities/report/types";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
+import PillButton from "@/shared/ui/PillButton";
 
 async function fetchReport(code: string): Promise<StockReport | null> {
   try {
@@ -40,6 +43,16 @@ const PREPARING_ITEMS = [
   },
 ] as const;
 
+const MOCK_STOCK_SUMMARY = {
+  name: "SK하이닉스",
+  code: "000660",
+  market: "코스피",
+  exchange: "KRX",
+  currentPrice: 1_504_000,
+  change: 79_000,
+  changeRate: 5.54,
+} as const;
+
 export default async function StockReportPage({
   params,
 }: {
@@ -51,63 +64,52 @@ export default async function StockReportPage({
 
   return (
     <PageContainer>
-      {/* DESIGN_SPEC.md §13.2 Stock Header 간소화판 — 종목명/시장 정보가 아직 없어(백엔드
-          미연동) 종목코드만 title로 노출. 없는 데이터를 임의로 만들지 않는다(§22). */}
-      <h1 className="py-6 text-center text-[22px] font-semibold text-heading">{code}</h1>
-
       <div className="flex flex-col gap-4 pb-8">
-        {/* §13.3 Price Hero — currentPrice가 없으면(리포트 미생성) 통째로 숨긴다 */}
-        {report?.currentPrice != null && (
-          <Card>
-            <p className="text-[38px] leading-[1.1] font-bold tracking-[-0.03em] text-heading">
-              {report.currentPrice.toLocaleString()}원
-            </p>
-          </Card>
-        )}
-
-        {/* §21 AI Report Section — 근거 있을 때만 노출(F-03-1 규칙) */}
-        {hasJudgement ? (
-          <Card>
-            <h2 className="mb-3 text-[18px] font-semibold text-heading">투자 판단 요약</h2>
-            <p className={`text-[20px] font-bold ${JUDGEMENT_COLOR[report!.judgement!] ?? ""}`}>
-              {report!.judgement}
-            </p>
-            <ul className="mt-3 flex flex-col gap-2">
-              {report!.judgementReasons!.map((reason, i) => (
-                <li key={i} className="flex items-start gap-2 text-[14px] leading-[1.6] text-heading">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                  <span>{reason}</span>
-                </li>
-              ))}
-            </ul>
-          </Card>
-        ) : (
-          // §15.2 — 리포트가 아직 없을 때의 고정 안내 카드 (빈 값 조작 금지)
-          <Card className="flex flex-col gap-6">
-            <h2 className="flex items-center gap-2 text-[18px] font-semibold text-heading">
-              <span className="text-primary-soft">✦</span> AI 분석 리포트 요약
-            </h2>
-            {PREPARING_ITEMS.map((item, i) => (
-              <div key={item.title} className="flex items-start gap-3">
-                <span
-                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold ${item.badge}`}
-                >
-                  {i + 1}
+        <Card className="flex flex-col px-0 py-0 border-0 shadow-none">
+          <div className="flex flex-col gap-[14px] px-5 pt-6 pb-4">
+            <div className="relative flex flex-col gap-1">
+              <button
+                type="button"
+                aria-label="관심종목 추가"
+                className="absolute top-0 right-0 cursor-pointer text-heading"
+              >
+                <Heart aria-hidden="true" size={24} strokeWidth={1.8} />
+              </button>
+              <h1 className="text-[28px] leading-none font-bold tracking-[-0.04em] text-heading">
+                {MOCK_STOCK_SUMMARY.name}
+              </h1>
+              <p className="text-[14px] leading-none text-caption">
+                {MOCK_STOCK_SUMMARY.code} <span aria-hidden="true">|</span>{" "}
+                {MOCK_STOCK_SUMMARY.market} <span aria-hidden="true">|</span>{" "}
+                {MOCK_STOCK_SUMMARY.exchange}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <p className="text-[40px] leading-none font-bold tracking-[-0.04em] text-market-up">
+                {MOCK_STOCK_SUMMARY.currentPrice.toLocaleString()}
+              </p>
+              <div className="flex min-h-6 items-center gap-3 text-[18px] leading-none font-medium text-market-up">
+                <span className="flex items-center gap-1">
+                  <Triangle aria-hidden="true" fill="currentColor" height={16} width={16} strokeWidth={0} />
+                  {MOCK_STOCK_SUMMARY.change.toLocaleString()}
                 </span>
-                <div>
-                  <p className="text-[16px] font-semibold text-heading">{item.title}</p>
-                  <p className="mt-1 text-[14px] leading-[1.5] text-caption">{item.description}</p>
-                </div>
+                <span className="h-4 w-px bg-border" aria-hidden="true" />
+                <span>+{MOCK_STOCK_SUMMARY.changeRate.toFixed(2)}%</span>
               </div>
-            ))}
-          </Card>
-        )}
+            </div>
+          </div>
 
+          <StockChartPanel stockCode={code} />
+        </Card>
+
+      <div className="flex flex-col gap-4 px-5">
+        <PillButton className="self-center !w-[80%] px-6">AI 리포트 보기</PillButton>
         <p className="text-center text-[12px] leading-[1.5] text-caption">
           본 정보는 투자 참고 자료이며 투자 권유가 아닙니다.
           <br />
           투자 판단과 그 결과에 대한 책임은 이용자 본인에게 있습니다.
         </p>
+        </div>
       </div>
     </PageContainer>
   );
