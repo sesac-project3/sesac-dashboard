@@ -227,72 +227,79 @@ class ReportService:
 
         # 5. 최신 뉴스 수집 (F-03-4): data_source 테이블에서 positive(긍정), negative(부정), neutral(중립) 최신순 1개씩 추출
         selected_rows = []
-        used_ids = set()
+        # 5. 최신 뉴스 3개 수집 (네이버 뉴스 API 우선 -> 헤드라인 종목명 DB 필터 및 기본값 폴백)
+        from app.common.naver_news import fetch_naver_news_for_stock
 
         SENTIMENT_MAP = {
             "positive": "긍정",
             "negative": "부정",
             "neutral": "중립",
+            "긍정": "긍정",
+            "부정": "부정",
+            "중립": "중립",
         }
 
-        for target_sent in ["positive", "negative", "neutral"]:
-            row = db.execute(
-                text("""
-                    SELECT id, headline, url, date, created_at, sentiment
-                    FROM data_source
-                    WHERE stock_id = :stock_id AND source_type = '뉴스' AND sentiment = :target_sent
-                    ORDER BY date DESC, id DESC
-                    LIMIT 1
-                """),
-                {"stock_id": stock_id, "target_sent": target_sent},
-            ).fetchone()
+        stock_name = stock.name if stock else ""
+        naver_items = fetch_naver_news_for_stock(stock_name, limit=3)
 
-            if row:
-                selected_rows.append(row)
-                used_ids.add(row.id)
-
-        # 긍정/부정/중립 중 없는 라벨이 있다면 최신순으로 남은 자리 보충해서 3개 보장
-        if len(selected_rows) < 3:
-            fill_rows = db.execute(
+        latest_news = []
+        if naver_items:
+            for idx, item in enumerate(naver_items, 1):
+                latest_news.append(
+                    NewsItem(
+                        id=idx,
+                        title=item["title"],
+                        publisher=item["publisher"],
+                        publishedAt=item["publishedAt"],
+                        sentiment=item["sentiment"],
+                        url=item["url"],
+                    )
+                )
+        else:
+            # 네이버 API 미응답 시 DB에서 헤드라인에 종목명이 포함된 뉴스 3개 수집
+            db_news_rows = db.execute(
                 text("""
                     SELECT id, headline, url, date, created_at, sentiment
                     FROM data_source
                     WHERE stock_id = :stock_id AND source_type = '뉴스'
+                      AND headline LIKE :headline_pattern
                     ORDER BY date DESC, id DESC
-                    LIMIT 10
+                    LIMIT 3
                 """),
-                {"stock_id": stock_id},
+                {"stock_id": stock_id, "headline_pattern": f"%{stock_name}%"},
             ).fetchall()
-            for r in fill_rows:
-                if r.id not in used_ids:
-                    selected_rows.append(r)
-                    used_ids.add(r.id)
-                    if len(selected_rows) == 3:
-                        break
 
-        latest_news = []
-        now = datetime.now(timezone.utc)
-        for row in selected_rows:
-            diff_hours = max(1, int((now - row.created_at.replace(tzinfo=timezone.utc)).total_seconds() // 3600)) if row.created_at else 2
-            raw_headline = sanitize_headline(str(row.headline or "").strip())
-            clean_title = raw_headline.split("\n")[0][:75] + ("..." if len(raw_headline) > 75 else "")
-            pub_name = extract_publisher(row.url)
-            sent_label = SENTIMENT_MAP.get(str(row.sentiment).lower(), "중립")
+            if len(db_news_rows) < 3:
+                # 종목명 포함 기사가 3개 미만이면 최신 기사 전체에서 보충
+                db_news_rows = db.execute(
+                    text("""
+                        SELECT id, headline, url, date, created_at, sentiment
+                        FROM data_source
+                        WHERE stock_id = :stock_id AND source_type = '뉴스'
+                        ORDER BY date DESC, id DESC
+                        LIMIT 3
+                    """),
+                    {"stock_id": stock_id},
+                ).fetchall()
 
-            latest_news.append(
-                NewsItem(
-                    id=int(row.id),
-                    title=clean_title,
-                    publisher=pub_name,
-                    publishedAt=f"{diff_hours}시간 전",
-                    sentiment=sent_label,
-                    url=row.url,
+            now = datetime.now(timezone.utc)
+            for idx, row in enumerate(db_news_rows, 1):
+                diff_hours = max(1, int((now - row.created_at.replace(tzinfo=timezone.utc)).total_seconds() // 3600)) if row.created_at else 2
+                raw_headline = sanitize_headline(str(row.headline or "").strip())
+                clean_title = raw_headline.split("\n")[0][:75] + ("..." if len(raw_headline) > 75 else "")
+                pub_name = extract_publisher(row.url)
+                sent_label = SENTIMENT_MAP.get(str(row.sentiment).lower(), "중립")
+
+                latest_news.append(
+                    NewsItem(
+                        id=idx,
+                        title=clean_title,
+                        publisher=pub_name,
+                        publishedAt=f"{diff_hours}시간 전",
+                        sentiment=sent_label,
+                        url=row.url,
+                    )
                 )
-            )
-
-
-
-
 
         if not latest_news:
             latest_news = DEFAULT_NEWS.get(stock_code, [])

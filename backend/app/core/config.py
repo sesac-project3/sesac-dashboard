@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     # --- LLM (F-03/F-05 분류·요약) ---
     openai_api_key: str = ""
 
+    # --- 네이버 Open API (뉴스 검색) ---
+    naver_client_id: str = ""
+    naver_secret_key: str = ""
+    naver_client_secret: str = ""
+
     # --- F-02 숏폼 배경 영상 저장 (ISSUE-E3) ---
     aws_access_key_id: str = ""
     aws_secret_access_key: str = ""
