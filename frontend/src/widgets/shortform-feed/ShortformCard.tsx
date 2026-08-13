@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import type { Shortform } from "@/entities/shortform/types";
 import LikeButton from "@/features/shortform-like/LikeButton";
 import { getResumePosition, saveVideoPosition } from "@/widgets/shortform-feed/videoPositionStore";
+import { getServerSnapshot, getSnapshot, setMuted, setVolume, subscribe } from "@/widgets/shortform-feed/volumeStore";
 
 const SENTIMENT_GRADIENT: Record<Shortform["sentiment"], string> = {
   POS: "from-rose-500 to-orange-400",
@@ -24,12 +25,19 @@ export default function ShortformCard({
   onVisible?: () => void;
 }) {
   const [showInsight, setShowInsight] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  // 볼륨/음소거는 이 카드만의 상태가 아니라 전체 숏폼 피드가 공유하는 값이다(다음 영상으로
+  // 스크롤해도 유지돼야 하므로) — useSyncExternalStore로 모듈 스코프 store를 구독한다.
+  const { volume, muted: isMuted } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   const toggleInsight = () => setShowInsight((v) => !v);
   const insightLines = shortform.aiInsight?.split("\n").filter(Boolean) ?? [];
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const leftViewAtRef = useRef<number | null>(null);
+
+  // <video>의 volume은 HTML 속성이 아니라 DOM 프로퍼티라 JSX로 못 넘긴다 — ref로 직접 설정.
+  useEffect(() => {
+    if (videoRef.current) videoRef.current.volume = volume;
+  }, [volume]);
 
   // onVisible은 부모(ShortformFeed)가 매 렌더마다 새로 만들어 넘기는 함수라, 아래 effect의
   // deps에 넣으면 IntersectionObserver를 매번 disconnect/재생성해야 한다. ref에 최신 값만
@@ -124,13 +132,7 @@ export default function ShortformCard({
           가짜 수치 아님) — 나중에 OpenAI로 리포트 요약을 따로 생성하면 그 결과로 교체.
           article의 자식이라 카드가 스크롤될 때 영상과 같이 그 위치에서 이동한다(별도 처리 불필요). */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 px-6 text-center">
-        <p
-          className="text-2xl leading-snug font-extrabold text-white"
-          style={{
-            textShadow:
-              "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 8px rgba(0,0,0,0.4)",
-          }}
-        >
+        <p className="inline-block rounded-2xl bg-black/45 px-4 py-3 text-2xl leading-snug font-extrabold text-white backdrop-blur-[2px]">
           {insightLines[0] ?? "AI 리포트 요약 준비 중"}
         </p>
       </div>
@@ -143,20 +145,47 @@ export default function ShortformCard({
             {shortform.sentiment}
           </span>
         </span>
-        {insightLines.length > 0 && (
-          <button
-            onClick={toggleInsight}
-            // 데스크톱: 마우스 올리면 미리보기로 뜨고 떼면 사라짐(호버). 탭/클릭은 그대로
-            // 토글이라 터치 기기(호버 없음)에서도 동일하게 동작한다.
-            onMouseEnter={() => setShowInsight(true)}
-            onMouseLeave={() => setShowInsight(false)}
-            className={`pointer-events-auto rounded-full px-2 py-1 text-xs font-medium transition-colors ${
-              showInsight ? "bg-primary text-white" : "bg-black/40 text-white"
-            }`}
+        <div className="flex items-center gap-2">
+          {/* 볼륨 조절 — AI INSIGHT 버튼 왼쪽에 배치. 슬라이더 값은 피드 전체가 공유하는
+              store라 다음 영상으로 넘어가도 그대로 유지된다. */}
+          <div
+            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-1"
+            onClick={(e) => e.stopPropagation()}
           >
-            <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
-          </button>
-        )}
+            <button
+              onClick={() => setMuted(!isMuted)}
+              className="text-xs leading-none"
+              aria-label={isMuted ? "음소거 해제" : "음소거"}
+            >
+              {isMuted || volume === 0 ? "🔇" : "🔊"}
+            </button>
+            <input
+              type="range"
+              min={0}
+              max={1}
+              step={0.05}
+              value={isMuted ? 0 : volume}
+              onChange={(e) => setVolume(Number(e.target.value))}
+              className="h-1 w-14"
+              style={{ accentColor: "white" }}
+              aria-label="볼륨 조절"
+            />
+          </div>
+          {insightLines.length > 0 && (
+            <button
+              onClick={toggleInsight}
+              // 데스크톱: 마우스 올리면 미리보기로 뜨고 떼면 사라짐(호버). 탭/클릭은 그대로
+              // 토글이라 터치 기기(호버 없음)에서도 동일하게 동작한다.
+              onMouseEnter={() => setShowInsight(true)}
+              onMouseLeave={() => setShowInsight(false)}
+              className={`pointer-events-auto rounded-full px-2 py-1 text-xs font-medium transition-colors ${
+                showInsight ? "bg-primary text-white" : "bg-black/40 text-white"
+              }`}
+            >
+              <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
+            </button>
+          )}
+        </div>
       </div>
 
       {/* z-invest 프로토타입: 영상 위에 탭하면 뜨는 AI INSIGHT 패널 (핵심 포인트 3줄, PRD 시나리오 A) */}
@@ -182,22 +211,9 @@ export default function ShortformCard({
         <p className="mt-6 text-xs text-white/40">탭하면 닫혀요</p>
       </div>
 
-      {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치 */}
+      {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치.
+          음소거/볼륨 조절은 상단 바(AI INSIGHT 왼쪽)로 옮겨서 여긴 좋아요만 남는다. */}
       <div className="pointer-events-auto absolute right-3 bottom-[212px] flex flex-col items-center gap-5">
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsMuted(!isMuted);
-          }}
-          className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95"
-          title={isMuted ? "소리 켜기" : "음소거"}
-        >
-          {isMuted ? (
-            <span className="text-lg">🔇</span>
-          ) : (
-            <span className="text-lg">🔊</span>
-          )}
-        </button>
         <LikeButton
           shortformId={shortform.id}
           initialLiked={shortform.liked}
