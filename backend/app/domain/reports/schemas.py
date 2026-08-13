@@ -28,7 +28,9 @@ class NewsItem(BaseModel):
 class StockReport(BaseModel):
     stockCode: str
     reportDate: str
-    judgement: Literal["매수", "중립", "매도"] | None = None
+    judgement: Literal["BUY", "HOLD", "SELL", "매수", "중립", "매도"] | None = None
+    qualitativeSignal: str | None = None
+    investmentSummary: str | None = None
     judgementReasons: list[str] | None = None
     revenueTrend: Literal["증가", "감소"] | None = None
     operatingProfitTrend: Literal["증가", "감소"] | None = None
@@ -43,3 +45,4 @@ class StockReport(BaseModel):
     week52Low: float | None = None
     currentPrice: float | None = None
     valuationComment: str | None = None
+

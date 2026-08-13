@@ -109,3 +109,133 @@ def analyze_financial_trends(
         profitability_grade = "낮음"
 
     return revenue_trend, profit_trend, margin_trend, growth_grade, profitability_grade
+
+
+def calculate_stock_opinion(
+    news_sentiment_counts: dict[str, int],
+    community_sentiment_counts: dict[str, int],
+    operating_margin: float | None,
+    per: float | None,
+    pbr: float | None,
+    week52_high: float | None,
+    week52_low: float | None,
+    current_price: float | None,
+    daily_candles: list[dict] | None = None,
+) -> tuple[str, str, float]:
+    """
+    F-03-1 다면적 7대 신호 조합 스코어링 엔진 (_stock_opinion)
+    반환: (opinion, qualitative_signal, total_score)
+    """
+    score = 0.0
+
+    # 1. 뉴스 신호 (news_signal: +0.6 ~ -0.6)
+    n_pos = news_sentiment_counts.get("positive", 0)
+    n_neg = news_sentiment_counts.get("negative", 0)
+    n_tot = n_pos + n_neg + news_sentiment_counts.get("neutral", 0)
+    if n_tot > 0:
+        n_ratio = (n_pos - n_neg) / n_tot
+        score += n_ratio * 0.6
+
+    # 2. 커뮤니티 신호 (community_signal: +0.3 ~ -0.3)
+    c_pos = community_sentiment_counts.get("positive", 0)
+    c_neg = community_sentiment_counts.get("negative", 0)
+    c_tot = c_pos + c_neg + community_sentiment_counts.get("neutral", 0)
+    if c_tot > 0:
+        c_ratio = (c_pos - c_neg) / c_tot
+        score += c_ratio * 0.3
+
+    # 3. 수익성 신호 (margin_signal)
+    if operating_margin is not None:
+        if operating_margin >= 30.0:
+            score += 0.9
+        elif operating_margin >= 15.0:
+            score += 0.5
+        elif operating_margin <= 0.0:
+            score -= 0.7
+
+    # 4. 밸류에이션 신호 (valuation_signal)
+    if per is not None and per > 0:
+        if per <= 12.0:
+            score += 0.8
+        elif per >= 25.0:
+            score -= 0.6
+    if pbr is not None and pbr > 0:
+        if pbr <= 1.0:
+            score += 0.7
+        elif pbr <= 1.5:
+            score += 0.4
+        elif pbr >= 3.5:
+            score -= 0.5
+
+    # 5. 52주 주가 위치 신호 (band_signal)
+    if week52_high and week52_low and current_price and week52_high > week52_low:
+        pos_ratio = (current_price - week52_low) / (week52_high - week52_low)
+        if pos_ratio <= 0.35:
+            score += 0.8
+        elif pos_ratio >= 0.75:
+            score -= 0.6
+
+    # 6. 차트/기술적 신호 & 7. 변동성 감점
+    if daily_candles and len(daily_candles) >= 20:
+        c_curr = float(daily_candles[0].get("close_price", 0)) if isinstance(daily_candles[0], dict) else float(getattr(daily_candles[0], "close_price", 0))
+        c_20 = float(daily_candles[19].get("close_price", 0)) if isinstance(daily_candles[19], dict) else float(getattr(daily_candles[19], "close_price", 0))
+        if c_20 > 0 and c_curr >= c_20 * 1.05:
+            score += 0.4
+        close_list = [float(c.get("close_price", 0)) if isinstance(c, dict) else float(getattr(c, "close_price", 0)) for c in daily_candles[:60]]
+        vol_score = calculate_volatility_score(close_list)
+        if vol_score >= 85.0:
+            score -= 0.4
+
+    total_score = round(score, 2)
+
+    # total_score 구간에 따른 의견 및 정성적 신호 세분화
+    if total_score >= 0.45:
+        opinion = "BUY"
+        qualitative_signal = "지표들이 양호한 편입니다"
+    elif total_score >= 0.15:
+        opinion = "HOLD"
+        qualitative_signal = "중립적 관망 구간입니다"
+    elif total_score >= -0.30:
+        opinion = "HOLD"
+        qualitative_signal = "혼조된 신호를 보이고 있습니다"
+    else:
+        opinion = "SELL"
+        qualitative_signal = "부담스러운 구간입니다"
+
+    return opinion, qualitative_signal, total_score
+
+
+def generate_investment_summary(
+    stock_name: str,
+    current_price: float | None,
+    opinion: str,
+    qualitative_signal: str,
+    news_items: list[dict] | None = None,
+    operating_margin: float | None = None,
+) -> str:
+    """
+    자본시장법 규제 준수 정성적 자연어 요약 생성기 (_investment_summary)
+    - 종목별 정량 데이터(영업이익률 등)와 뉴스 흐름을 차별화되게 결합
+    - 행동 권유 및 "전략", "권장", "비중 조절" 키워드 전면 배제
+    """
+    price_str = f"현재가 {current_price:,.0f}원 기준 " if current_price else ""
+    opm_str = f"영업이익률({operating_margin:.1f}%) " if operating_margin is not None else ""
+
+    news_summary = ""
+    if news_items and len(news_items) > 0:
+        first_title = str(news_items[0].get("title", "") if isinstance(news_items[0], dict) else getattr(news_items[0], "title", "")).strip()
+        if first_title:
+            news_summary = f"최근 이슈로는 '{first_title[:35]}...' 등이 확인되며, "
+
+    if opinion == "BUY":
+        summary = f"{price_str}{opm_str}수익성 및 주요 지표 흐름이 우수하여 {qualitative_signal}. {news_summary}업종 내 상대적 퀀트 매력도가 유지되는 상태입니다."
+    elif opinion == "SELL":
+        summary = f"{price_str}단기 변동성 및 밸류에이션 여건으로 인해 {qualitative_signal}. {news_summary}리스크 관리가 요구되는 상태입니다."
+    elif qualitative_signal == "중립적 관망 구간입니다":
+        summary = f"{price_str}{opm_str}실적 흐름과 주가 밴드 위치를 감안할 때 {qualitative_signal}. {news_summary}시장 재평가 추이를 지켜보는 단계입니다."
+    else:
+        summary = f"{price_str}주요 퀀트 지표 및 수급 신호가 {qualitative_signal}. {news_summary}시장 상황을 다각도로 관찰하는 흐름을 보이고 있습니다."
+
+    return summary
+
+
