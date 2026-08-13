@@ -42,15 +42,15 @@ export default function AiReportDetailModal({
     report.judgement === "BUY" || report.judgement === "매수"
       ? "매수 (Buy)"
       : report.judgement === "SELL" || report.judgement === "매도"
-      ? "매도 (Sell)"
-      : "보유 (Hold)";
+        ? "매도 (Sell)"
+        : "보유 (Hold)";
 
   const judgementColor =
     report.judgement === "BUY" || report.judgement === "매수"
       ? "text-[#F04452] bg-[#FEE9E8]"
       : report.judgement === "SELL" || report.judgement === "매도"
-      ? "text-[#3182F6] bg-[#E8F3FF]"
-      : "text-[#FF9500] bg-[#FFF5E6]";
+        ? "text-[#3182F6] bg-[#E8F3FF]"
+        : "text-[#FF9500] bg-[#FFF5E6]";
 
   // 52주 위치 계산 %
   const week52High = report.week52High ?? 1;
@@ -170,14 +170,13 @@ export default function AiReportDetailModal({
                         {fin.revenue > 1000000000
                           ? (fin.revenue / 10000000000).toFixed(1)
                           : fin.revenue > 1000
-                          ? (fin.revenue / 1000).toFixed(1)
-                          : fin.revenue.toFixed(1)}
+                            ? (fin.revenue / 1000).toFixed(1)
+                            : fin.revenue.toFixed(1)}
                       </span>
                       <div className="h-28 w-full bg-[#F2F4F6] rounded-xl flex items-end p-1">
                         <div
-                          className={`w-full rounded-lg transition-all duration-500 ${
-                            isLatest ? "bg-[#3182F6]" : "bg-[#B0B8C1]"
-                          }`}
+                          className={`w-full rounded-lg transition-all duration-500 ${isLatest ? "bg-[#3182F6]" : "bg-[#B0B8C1]"
+                            }`}
                           style={{ height: `${heightPercent}%` }}
                         />
                       </div>
@@ -273,12 +272,6 @@ export default function AiReportDetailModal({
             {report.latestNews && report.latestNews.length > 0 ? (
               <div className="space-y-3">
                 {report.latestNews.map((news) => {
-                  const badgeStyle =
-                    news.sentiment === "긍정"
-                      ? "bg-[#E6F7F0] text-[#00A86B]"
-                      : news.sentiment === "부정"
-                      ? "bg-[#FEE9E8] text-[#F04452]"
-                      : "bg-[#F2F4F6] text-[#6B7684]";
                   return (
                     <a
                       key={news.id}
@@ -288,9 +281,6 @@ export default function AiReportDetailModal({
                       className="block rounded-xl bg-[#F9FAFB] p-3.5 border border-slate-100 hover:bg-[#F2F4F6] transition"
                     >
                       <div className="flex items-center gap-2 mb-1.5">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded ${badgeStyle}`}>
-                          {news.sentiment}
-                        </span>
                         <span className="text-[11px] text-[#8B95A1]">{news.publisher} • {news.publishedAt}</span>
                       </div>
                       <h5 className="text-xs font-semibold text-[#333D4B] line-clamp-2 leading-relaxed">
@@ -323,11 +313,10 @@ export default function AiReportDetailModal({
                 <button
                   key={tab.id}
                   onClick={() => setPeerTab(tab.id as any)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${
-                    peerTab === tab.id
+                  className={`px-3 py-1.5 text-xs font-bold rounded-xl transition ${peerTab === tab.id
                       ? "bg-[#3182F6] text-white shadow-sm"
                       : "bg-[#F2F4F6] text-[#6B7684] hover:bg-slate-200"
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>
@@ -378,9 +367,8 @@ export default function AiReportDetailModal({
                       {hasData ? (
                         <div className="h-3.5 flex-1 rounded-full bg-[#F2F4F6] overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              isCurrent ? "bg-[#3182F6]" : "bg-[#8B95A1]"
-                            }`}
+                            className={`h-full rounded-full transition-all duration-500 ${isCurrent ? "bg-[#3182F6]" : "bg-[#8B95A1]"
+                              }`}
                             style={{ width: `${widthPercent}%` }}
                           />
                         </div>
