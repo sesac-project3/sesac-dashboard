@@ -4,6 +4,10 @@ export interface WatchlistStock {
   code: string;
   name: string;
   market: string;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  isUp: boolean | null;
 }
 
 export const getWatchlist = () =>

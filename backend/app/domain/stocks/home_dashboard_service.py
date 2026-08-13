@@ -61,7 +61,7 @@ def _fetch_index_detail(index_type: str, title: str, index_code: str, market_fla
     )
 
 
-def _fetch_stock_ranking_items(db: Session) -> list[StockRankingItem]:
+def fetch_stock_ranking_items(db: Session) -> list[StockRankingItem]:
     stocks = db.scalars(select(Stock).order_by(Stock.id)).all()
     items: list[StockRankingItem] = []
     for s in stocks:
@@ -104,7 +104,7 @@ def get_home_dashboard(db: Session) -> HomeDashboard:
         for detail in (_fetch_index_detail(*definition) for definition in _INDEX_DEFS)
         if detail is not None
     ]
-    items = _fetch_stock_ranking_items(db)
+    items = fetch_stock_ranking_items(db)
     return HomeDashboard(
         indices=indices,
         rankings=_build_rankings(items),

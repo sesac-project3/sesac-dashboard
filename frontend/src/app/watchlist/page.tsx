@@ -7,9 +7,11 @@ import { useLoggedIn } from "@/shared/hooks/useLoggedIn";
 import { getWatchlist, type WatchlistStock } from "@/shared/api/watchlists";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
+import StockLogo from "@/shared/ui/StockLogo";
 
 // F-04 관심종목. 홈 화면 랭킹의 하트 토글(POST /watchlists/{code}/toggle)로 등록된 종목을
-// 그대로 보여준다 — 로그인 안 했으면 다른 로그인 필요 화면(내 정보)과 같은 패턴으로 홈으로.
+// 가격/등락(홈 랭킹과 동일한 KIS 실데이터, 동일 표기)과 함께 보여준다 — 로그인 안 했으면
+// 다른 로그인 필요 화면(내 정보)과 같은 패턴으로 홈으로 보낸다.
 export default function WatchlistPage() {
   const router = useRouter();
   const loggedIn = useLoggedIn();
@@ -39,16 +41,42 @@ export default function WatchlistPage() {
           아직 담은 종목이 없습니다.
         </Card>
       ) : (
-        <div className="flex flex-col gap-2">
+        <Card className="flex flex-col divide-y divide-border-soft/60">
           {stocks.map((stock) => (
-            <Link key={stock.code} href={`/stock/${stock.code}`}>
-              <Card className="flex items-center justify-between">
-                <span className="text-[15px] font-bold text-heading">{stock.name}</span>
-                <span className="text-[13px] text-caption">{stock.code}</span>
-              </Card>
+            <Link
+              key={stock.code}
+              href={`/stock/${stock.code}`}
+              className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+            >
+              <div className="flex items-center gap-3">
+                <StockLogo code={stock.code} name={stock.name} />
+                <span className="text-[16px] font-bold text-heading">{stock.name}</span>
+              </div>
+
+              <div className="text-right">
+                {stock.price === null ? (
+                  <p className="text-[13px] text-caption">시세 조회 실패</p>
+                ) : (
+                  <>
+                    <p className="text-[15px] font-bold text-heading">
+                      {stock.price.toLocaleString()}원
+                    </p>
+                    <p
+                      className={`text-[12px] font-bold ${
+                        stock.isUp ? "text-market-up" : "text-market-down"
+                      }`}
+                    >
+                      {stock.isUp ? "+" : "-"}
+                      {Math.abs(stock.change ?? 0).toLocaleString()} (
+                      {stock.isUp ? "+" : ""}
+                      {(stock.changePercent ?? 0).toFixed(2)}%)
+                    </p>
+                  </>
+                )}
+              </div>
             </Link>
           ))}
-        </div>
+        </Card>
       )}
     </PageContainer>
   );
