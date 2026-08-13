@@ -48,7 +48,7 @@ export default async function StockReportPage({
 
         <WeeklySentimentWeather stockCode={code} />
 
-        <div className="px-5">
+        <div>
           <StockReportSummaryWidget
             report={report}
             stockName={stockName}

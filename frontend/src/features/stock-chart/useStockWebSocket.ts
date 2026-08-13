@@ -74,8 +74,8 @@ export default function useStockWebSocket(stockCode: string) {
         setCandlesByInterval((previous) => ({ ...previous, [message.interval]: message.candle }));
       };
 
-      socket.onclose = () => {
-        console.warn("[stock-ws] close", { stockCode });
+      socket.onclose = ({ code, reason }) => {
+        console.warn("[stock-ws] close", { stockCode, code, reason });
         if (socketRef.current === socket) socketRef.current = null;
         setConnectionState("closed");
         if (shouldReconnectRef.current) {

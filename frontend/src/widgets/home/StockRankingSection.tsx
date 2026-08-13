@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Heart } from "lucide-react";
+import { Heart, RefreshCw } from "lucide-react";
 import Card from "@/shared/ui/Card";
 import StockLogo from "@/shared/ui/StockLogo";
 import { getAccessToken } from "@/shared/api/base";
@@ -104,26 +104,13 @@ export default function StockRankingSection({
             aria-label="새로고침"
             className="p-0.5 text-caption transition-transform hover:text-heading disabled:opacity-50"
           >
-            <svg
-              viewBox="0 0 24 24"
-              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" />
-              <path d="M21 3v5h-5" />
-              <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
-              <path d="M3 21v-5h5" />
-            </svg>
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
           </button>
         </div>
       </div>
 
       {/* 가로 스크롤 탭 버튼 */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {TABS.map((tab) => {
           const isActive = tab === activeTab;
           return (

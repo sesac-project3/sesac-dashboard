@@ -69,8 +69,8 @@ const createExtremaLabelsPlugin = (candles: Candle[]): Plugin<"line"> => ({
     const closePrices = chart.data.datasets[0]?.data as number[];
     if (!dataset.data.length || !closePrices.length) return;
 
-    const maxIndex = closePrices.indexOf(Math.max(...closePrices));
-    const minIndex = closePrices.indexOf(Math.min(...closePrices));
+    const maxIndex = closePrices.lastIndexOf(Math.max(...closePrices));
+    const minIndex = closePrices.lastIndexOf(Math.min(...closePrices));
     const context = chart.ctx;
 
     context.save();
@@ -80,8 +80,8 @@ const createExtremaLabelsPlugin = (candles: Candle[]): Plugin<"line"> => ({
     context.textBaseline = "middle";
 
     for (const { index, label, offset } of [
-      { index: maxIndex, label: `고가 ${formatPrice(candles[maxIndex]?.highPrice ?? 0)}`, offset: -14 },
-      { index: minIndex, label: `저가 ${formatPrice(candles[minIndex]?.lowPrice ?? 0)}`, offset: 14 },
+      { index: maxIndex, label: `고가 ${formatPrice(candles[maxIndex]?.highPrice ?? 0)}`, offset: -26 },
+      { index: minIndex, label: `저가 ${formatPrice(candles[minIndex]?.lowPrice ?? 0)}`, offset: 26 },
     ]) {
       const point = dataset.data[index];
       if (!point) continue;
@@ -157,6 +157,8 @@ export default function StockChart({
   const closePrices = candles.map((candle) => candle.closePrice);
   const maxClose = Math.max(...closePrices);
   const minClose = Math.min(...closePrices);
+  const maxIndex = closePrices.lastIndexOf(maxClose);
+  const minIndex = closePrices.lastIndexOf(minClose);
   const extremaLabelsPlugin = createExtremaLabelsPlugin(candles);
   const externalTooltip = ({
     chart,
@@ -170,7 +172,7 @@ export default function StockChart({
       element = document.createElement("div");
       element.className = "chart-tooltip";
       element.style.cssText =
-        "position:absolute;transform:translate(12px,-50%);padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 12px rgba(17,24,39,.08);pointer-events:none;white-space:nowrap;transition:opacity .1s";
+        "position:absolute;transform:translate(12px,-50%);padding:12px;background:rgba(255,255,255,.75);border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 12px rgba(17,24,39,.08);pointer-events:none;white-space:nowrap;transition:opacity .1s";
       chart.canvas.parentNode?.appendChild(element);
     }
 
@@ -185,7 +187,7 @@ export default function StockChart({
     element.replaceChildren();
     const title = document.createElement("div");
     title.textContent = formatTooltipTimestamp(String(tooltip.title[0] ?? ""), interval);
-    title.style.cssText = "color:#374151;font-weight:700;margin-bottom:8px";
+    title.style.cssText = "color:#374151;font-weight:700;font-size:12px;margin-bottom:8px";
     element.appendChild(title);
 
     for (const [label, value, color] of [
@@ -196,15 +198,26 @@ export default function StockChart({
       ["거래량", candle.volume, "#9ca3af"],
     ] as const) {
       const row = document.createElement("div");
-      row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-family:monospace";
+      row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-size:12px";
       row.style.color = color;
       row.innerHTML = `<span>${label}</span><span>${label === "거래량" ? formatVolume(value) : formatPrice(value)}</span>`;
       element.appendChild(row);
     }
 
+    const container = chart.canvas.parentElement;
+    if (!container) return;
+
     element.style.opacity = "1";
-    element.style.left = `${tooltip.caretX}px`;
-    element.style.top = `${tooltip.caretY}px`;
+    const left = Math.min(
+      Math.max(tooltip.caretX, -12),
+      container.clientWidth - element.offsetWidth - 12,
+    );
+    const top = Math.min(
+      Math.max(tooltip.caretY, element.offsetHeight / 2),
+      container.clientHeight - element.offsetHeight / 2,
+    );
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
   };
   const data = {
     labels: candles.map((candle) => candle.timestamp),
@@ -215,7 +228,7 @@ export default function StockChart({
         borderColor: "#542be9",
         borderWidth: 2,
         pointRadius: (context: { dataIndex: number }) =>
-          closePrices[context.dataIndex] === maxClose || closePrices[context.dataIndex] === minClose ? 3 : 0,
+          context.dataIndex === maxIndex || context.dataIndex === minIndex ? 3 : 0,
         pointBackgroundColor: "#542be9",
         pointBorderColor: "#542be9",
         pointBorderWidth: 0,
@@ -234,7 +247,7 @@ export default function StockChart({
         options={{
           responsive: true,
           maintainAspectRatio: false,
-          layout: { padding: { top: 20, bottom: 20 } },
+          layout: { padding: { top: 32, bottom: 32 } },
           interaction: { mode: "index", intersect: false },
           plugins: {
             legend: { display: false },

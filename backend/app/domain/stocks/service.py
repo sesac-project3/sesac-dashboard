@@ -169,7 +169,12 @@ def backfill_minute_candles(db: Session) -> MinuteCandleBackfillResponse:
     results: list[MinuteCandleBackfillResult] = []
 
     for stock in stocks:
-        minute_rows = _fetch_latest_minute_range(stock.code, now)
+        last_traded_at = db.scalar(
+            select(func.max(StockMinuteCandle.traded_at)).where(
+                StockMinuteCandle.stock_id == stock.id,
+            )
+        )
+        minute_rows = _fetch_latest_minute_range(stock.code, now, last_traded_at)
         candles = [_to_minute_candle(stock.id, row) for row in minute_rows]
         if candles:
             stmt = insert(StockMinuteCandle).values(candles)
@@ -202,18 +207,32 @@ def backfill_minute_candles(db: Session) -> MinuteCandleBackfillResponse:
     )
 
 
-def _fetch_latest_minute_range(stock_code: str, now: datetime) -> list[dict[str, str]]:
+def _fetch_latest_minute_range(
+    stock_code: str,
+    now: datetime,
+    last_traded_at: datetime | None,
+) -> list[dict[str, str]]:
     input_time = min(now.strftime("%H%M%S"), MARKET_CLOSE)
-    for days_ago in range(4):
+    rows_by_timestamp: dict[tuple[str, str], dict[str, str]] = {}
+    last_traded_at_kst = last_traded_at.astimezone(KST) if last_traded_at else None
+    for days_ago in range(1, -1, -1):
         target_date = now.date() - timedelta(days=days_ago)
         rows = _fetch_minute_range(
             stock_code,
             target_date.strftime("%Y%m%d"),
             input_time if days_ago == 0 else MARKET_CLOSE,
         )
-        if rows:
-            return rows
-    return []
+        for row in rows:
+            key = (row.get("stck_bsop_date", ""), row.get("stck_cntg_hour", ""))
+            if not all(key):
+                continue
+            traded_at = datetime.strptime(
+                f"{key[0]} {key[1]}",
+                "%Y%m%d %H%M%S",
+            ).replace(tzinfo=KST)
+            if last_traded_at_kst is None or traded_at >= last_traded_at_kst:
+                rows_by_timestamp[key] = row
+    return [rows_by_timestamp[key] for key in sorted(rows_by_timestamp)]
 
 
 def _fetch_minute_range(
