@@ -41,3 +41,13 @@ class StockMinuteCandle(Base, TimestampMixin):
     low_price: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     close_price: Mapped[float] = mapped_column(Numeric(15, 2), nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, nullable=False)
+
+
+class SentimentAnalysis(Base, TimestampMixin):
+    __tablename__ = "sentiment_analysis"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    date: Mapped[date] = mapped_column(Date, nullable=False)
+    stock_id: Mapped[int] = mapped_column(ForeignKey("stocks.id"), nullable=False)
+    sentiment: Mapped[str] = mapped_column(String(20), nullable=False)
+

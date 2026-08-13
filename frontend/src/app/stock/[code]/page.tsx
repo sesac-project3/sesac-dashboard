@@ -5,6 +5,7 @@ import type { StockReport } from "@/entities/report/types";
 import type { Stock } from "@/entities/stock/types";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
+import WeeklySentimentWeather from "@/widgets/stock-weather/WeeklySentimentWeather";
 import PillButton from "@/shared/ui/PillButton";
 
 async function fetchReport(code: string): Promise<StockReport | null> {
@@ -73,15 +74,18 @@ export default async function StockReportPage({
           market={stock?.market === "KOSDAQ" ? "코스닥" : "코스피"}
         />
 
-      <div className="flex flex-col gap-4 px-5">
-        <PillButton className="self-center !w-[80%] px-6">AI 리포트 보기</PillButton>
-        <p className="text-center text-[12px] leading-[1.5] text-caption">
-          본 정보는 투자 참고 자료이며 투자 권유가 아닙니다.
-          <br />
-          투자 판단과 그 결과에 대한 책임은 이용자 본인에게 있습니다.
-        </p>
+        <WeeklySentimentWeather stockCode={code} />
+
+        <div className="flex flex-col gap-4 px-5">
+          <PillButton className="self-center !w-[80%] px-6">AI 리포트 보기</PillButton>
+          <p className="text-center text-[12px] leading-[1.5] text-caption">
+            본 정보는 투자 참고 자료이며 투자 권유가 아닙니다.
+            <br />
+            투자 판단과 그 결과에 대한 책임은 이용자 본인에게 있습니다.
+          </p>
         </div>
       </div>
     </PageContainer>
   );
 }
+
