@@ -2,7 +2,7 @@ export interface Shortform {
   id: number;
   stockCode: string;
   stockName: string;
-  sentiment: "긍정" | "부정";
+  sentiment: "POS" | "NEG";
   videoUrl: string;
   subtitleText: string;
   aiInsight: string | null;

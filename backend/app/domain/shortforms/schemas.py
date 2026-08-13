@@ -7,7 +7,7 @@ class Shortform(BaseModel):
     id: int
     stockCode: str
     stockName: str
-    sentiment: Literal["긍정", "부정"]
+    sentiment: Literal["POS", "NEG"]
     videoUrl: str
     subtitleText: str
     aiInsight: str | None = None
@@ -23,3 +23,9 @@ class LikeToggleResponse(BaseModel):
 
 class BackgroundVideoResponse(BaseModel):
     videoUrl: str | None
+
+
+class ShortformGenerateRequest(BaseModel):
+    reportId: int
+    sentiment: Literal["POS", "NEG"]
+
