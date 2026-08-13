@@ -313,7 +313,7 @@ export default function AiReportDetailModal({
             </div>
 
             {/* 4개 지표 탭 */}
-            <div className="flex gap-1.5 border-b border-slate-100 pb-3 overflow-x-auto">
+            <div className="flex gap-1.5 border-b border-slate-100 pb-3 overflow-x-auto scrollbar-none">
               {[
                 { id: "opm", label: "영업이익률" },
                 { id: "per", label: "PER" },
