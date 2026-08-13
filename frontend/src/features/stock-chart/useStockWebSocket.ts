@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 
 import { API_BASE_URL } from "@/shared/config/env";
+import { getAccessToken } from "@/shared/api/base";
 import type {
   Candle,
   CandleInterval,
@@ -47,8 +48,7 @@ export default function useStockWebSocket(stockCode: string) {
 
       socket.onopen = () => {
         console.log("[stock-ws] open", { stockCode });
-        setConnectionState("open");
-        socket.send(JSON.stringify({ type: "subscribe", stockCode }));
+        socket.send(JSON.stringify({ type: "auth", accessToken: getAccessToken() }));
       };
 
       socket.onmessage = ({ data }: MessageEvent<string>) => {
@@ -56,6 +56,12 @@ export default function useStockWebSocket(stockCode: string) {
         try {
           message = JSON.parse(data) as CandleWebSocketMessage;
         } catch {
+          return;
+        }
+
+        if ((message as { type?: string }).type === "authenticated") {
+          setConnectionState("open");
+          socket.send(JSON.stringify({ type: "subscribe", stockCode }));
           return;
         }
 
