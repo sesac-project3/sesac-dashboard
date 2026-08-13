@@ -89,12 +89,11 @@ export default function StockReportSummaryWidget({
           </div>
         )}
 
-        {/* 리포트 전체 보기 CTA 버튼 — DESIGN_SPEC.md §15.3 Report CTA:
-            outline/light surface, full width, pill, height 52~56px, dark navy text, arrow right */}
+        {/* 리포트 전체 보기 CTA 버튼 — full width, pill, height 52px, primary indigo(#542BE9) fill */}
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="flex h-[52px] w-full items-center justify-center gap-1 rounded-full border border-border bg-white text-[15px] font-medium text-heading transition active:scale-[0.98]"
+          className="flex h-[52px] w-full items-center justify-center gap-1 rounded-full bg-primary text-[15px] font-medium text-white transition active:scale-[0.98]"
         >
           <span>리포트 전체 보기</span>
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
