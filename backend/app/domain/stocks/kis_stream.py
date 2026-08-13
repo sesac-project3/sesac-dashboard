@@ -248,6 +248,13 @@ class KisMarketStream:
         if price <= 0:
             return
 
+        logger.info(
+            "Publishing quote update: stock_code=%s current_price=%s change_price=%s change_rate=%s",
+            stock_code,
+            price,
+            change_price,
+            change_rate,
+        )
         await publish_quote(stock_code, {
             "type": "quote_update",
             "stockCode": stock_code,

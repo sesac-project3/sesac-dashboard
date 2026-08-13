@@ -1,26 +1,16 @@
 from fastapi import WebSocket, WebSocketDisconnect
 
-from app.common.security import decode_access_token
 from app.domain.stocks.candle_store import (
     MARKET_INTERVALS,
     get_candle_snapshot,
     get_quote_snapshot,
 )
-from app.domain.stocks.market_subscription import (
-    market_websocket_manager,
-)
+from app.domain.stocks.market_subscription import market_websocket_manager
 
 
-async def handle_market_websocket(websocket: WebSocket, token: str | None) -> None:
+async def handle_market_websocket(websocket: WebSocket) -> None:
+    # TODO: 공개 시세 WebSocket의 연결·종목 구독 수/IP rate limit을 추가한다.
     await websocket.accept()
-    if not token:
-        await websocket.close(code=1008, reason="authentication required")
-        return
-    try:
-        decode_access_token(token)
-    except Exception:
-        await websocket.close(code=1008, reason="invalid token")
-        return
     await market_websocket_manager.connect(websocket)
 
     try:

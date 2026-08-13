@@ -21,6 +21,7 @@ ChartJS.register(CategoryScale, LineElement, LinearScale, PointElement, Tooltip)
 interface StockChartProps {
   stockCode: string;
   interval?: CandleInterval;
+  realtimeCandle?: Candle;
 }
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
@@ -79,6 +80,7 @@ const createExtremaLabelsPlugin = (candles: Candle[]): Plugin<"line"> => ({
 export default function StockChart({
   stockCode,
   interval = "DAILY",
+  realtimeCandle,
 }: StockChartProps) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,6 +109,11 @@ export default function StockChart({
       cancelled = true;
     };
   }, [stockCode, interval]);
+
+  useEffect(() => {
+    if (!realtimeCandle) return;
+    setCandles((previous) => (previous.length ? [...previous.slice(0, -1), realtimeCandle] : previous));
+  }, [realtimeCandle]);
 
   if (isLoading) {
     return <div className="flex h-72 items-center justify-center text-sm text-caption">차트를 불러오는 중...</div>;

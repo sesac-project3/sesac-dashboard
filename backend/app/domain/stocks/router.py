@@ -31,8 +31,8 @@ def list_stocks(db: Session = Depends(get_db)):
 
 
 @router.websocket("/ws")
-async def market_websocket(websocket: WebSocket, token: str | None = None):
-    await handle_market_websocket(websocket, token)
+async def market_websocket(websocket: WebSocket):
+    await handle_market_websocket(websocket)
 
 
 @router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])

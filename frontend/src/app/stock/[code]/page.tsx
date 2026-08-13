@@ -1,7 +1,8 @@
-import StockChartPanel from "@/features/stock-chart/StockChartPanel";
-import { Heart, Sparkles, Triangle } from "lucide-react";
+import StockLiveSection from "@/features/stock-quote/StockLiveSection";
+import { Sparkles } from "lucide-react";
 import { API_BASE_URL } from "@/shared/config/env";
 import type { StockReport } from "@/entities/report/types";
+import type { Stock } from "@/entities/stock/types";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
 import PillButton from "@/shared/ui/PillButton";
@@ -12,6 +13,17 @@ async function fetchReport(code: string): Promise<StockReport | null> {
     if (!res.ok) return null;
     const body = await res.json(); // ApiResponse 봉투
     return body.data;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchStock(code: string): Promise<Stock | null> {
+  try {
+    const res = await fetch(`${API_BASE_URL}/stocks`, { cache: "no-store" });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return (body.data as Stock[]).find((stock) => stock.code === code) ?? null;
   } catch {
     return null;
   }
@@ -43,64 +55,23 @@ const PREPARING_ITEMS = [
   },
 ] as const;
 
-const MOCK_STOCK_SUMMARY = {
-  name: "SK하이닉스",
-  code: "000660",
-  market: "코스피",
-  exchange: "KRX",
-  currentPrice: 1_504_000,
-  change: 79_000,
-  changeRate: 5.54,
-} as const;
-
 export default async function StockReportPage({
   params,
 }: {
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const report = await fetchReport(code);
+  const [report, stock] = await Promise.all([fetchReport(code), fetchStock(code)]);
   const hasJudgement = report?.judgement && report.judgementReasons?.length;
 
   return (
     <PageContainer>
       <div className="flex flex-col gap-4 pb-8">
-        <Card className="flex flex-col px-0 py-0 border-0 shadow-none">
-          <div className="flex flex-col gap-[14px] px-5 pt-6 pb-4">
-            <div className="relative flex flex-col gap-1">
-              <button
-                type="button"
-                aria-label="관심종목 추가"
-                className="absolute top-0 right-0 cursor-pointer text-heading"
-              >
-                <Heart aria-hidden="true" size={24} strokeWidth={1.8} />
-              </button>
-              <h1 className="text-[28px] leading-none font-bold tracking-[-0.04em] text-heading">
-                {MOCK_STOCK_SUMMARY.name}
-              </h1>
-              <p className="text-[14px] leading-none text-caption">
-                {MOCK_STOCK_SUMMARY.code} <span aria-hidden="true">|</span>{" "}
-                {MOCK_STOCK_SUMMARY.market} <span aria-hidden="true">|</span>{" "}
-                {MOCK_STOCK_SUMMARY.exchange}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <p className="text-[40px] leading-none font-bold tracking-[-0.04em] text-market-up">
-                {MOCK_STOCK_SUMMARY.currentPrice.toLocaleString()}
-              </p>
-              <div className="flex min-h-6 items-center gap-3 text-[18px] leading-none font-medium text-market-up">
-                <span className="flex items-center gap-1">
-                  <Triangle aria-hidden="true" fill="currentColor" height={16} width={16} strokeWidth={0} />
-                  {MOCK_STOCK_SUMMARY.change.toLocaleString()}
-                </span>
-                <span className="h-4 w-px bg-border" aria-hidden="true" />
-                <span>+{MOCK_STOCK_SUMMARY.changeRate.toFixed(2)}%</span>
-              </div>
-            </div>
-          </div>
-
-          <StockChartPanel stockCode={code} />
-        </Card>
+        <StockLiveSection
+          stockCode={code}
+          stockName={stock?.name ?? code}
+          market={stock?.market === "KOSDAQ" ? "코스닥" : "코스피"}
+        />
 
       <div className="flex flex-col gap-4 px-5">
         <PillButton className="self-center !w-[80%] px-6">AI 리포트 보기</PillButton>

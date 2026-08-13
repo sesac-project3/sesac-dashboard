@@ -33,4 +33,18 @@ export interface CandleUpdateMessage {
   updatedAt: string;
 }
 
-export type CandleWebSocketMessage = CandleSnapshotMessage | CandleUpdateMessage;
+export interface Quote {
+  stockCode: string;
+  currentPrice: number;
+  changePrice: number;
+  changeRate: number;
+  changeDirection: "UP" | "DOWN" | "EVEN";
+  previousClosePrice: number;
+  updatedAt: string;
+}
+
+export interface QuoteMessage extends Quote {
+  type: "quote_update" | "quote_snapshot";
+}
+
+export type CandleWebSocketMessage = CandleSnapshotMessage | CandleUpdateMessage | QuoteMessage;
