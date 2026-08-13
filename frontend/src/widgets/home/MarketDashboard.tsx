@@ -42,6 +42,10 @@ export default function MarketDashboard() {
 
   useEffect(() => {
     load();
+    // 5초마다 자동 갱신 — KIS 호출 한도(초당 20건, 앱키는 전체 사용자 공유)를 감안해
+    // 그보다 훨씬 낮은 주기로만 돈다. 새로고침 버튼은 이 interval과 별개로 즉시 재호출.
+    const interval = setInterval(load, 5000);
+    return () => clearInterval(interval);
   }, [load]);
 
   if (!data && !error) {

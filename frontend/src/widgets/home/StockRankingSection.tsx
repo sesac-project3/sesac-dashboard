@@ -1,8 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
 import Card from "@/shared/ui/Card";
+import { getAccessToken } from "@/shared/api/base";
+import { getWatchlist, toggleWatchlist } from "@/shared/api/watchlists";
 import type { RankingType, StockRankingItem } from "@/entities/stock/types";
 
 interface StockRankingSectionProps {
@@ -54,13 +58,39 @@ export default function StockRankingSection({
   onRefresh,
   refreshing,
 }: StockRankingSectionProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<RankingType>("상승률");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [pending, setPending] = useState<Record<string, boolean>>({});
 
-  const toggleFavorite = (code: string, e: React.MouseEvent) => {
+  // 로그인 상태에서만 실제 관심종목 목록을 불러온다 — 비로그인이면 빈 상태로 둔다
+  // (LikeButton과 동일 패턴: 하트 누를 때 로그인 안 돼있으면 그때 /login으로 보냄).
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    getWatchlist()
+      .then((list) => setFavorites(Object.fromEntries(list.map((s) => [s.code, true]))))
+      .catch(() => {
+        // ponytail: 조회 실패는 조용히 무시 — 하트는 그냥 빈 상태로 보이고 눌러서 다시 시도 가능
+      });
+  }, []);
+
+  const toggleFavorite = async (code: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setFavorites((prev) => ({ ...prev, [code]: !prev[code] }));
+    if (!getAccessToken()) {
+      router.push("/login");
+      return;
+    }
+    if (pending[code]) return;
+    setPending((prev) => ({ ...prev, [code]: true }));
+    try {
+      const result = await toggleWatchlist(code);
+      setFavorites((prev) => ({ ...prev, [code]: result.inWatchlist }));
+    } catch {
+      // ponytail: 토스트 없이 조용히 무시 — 다시 누르면 재시도됨
+    } finally {
+      setPending((prev) => ({ ...prev, [code]: false }));
+    }
   };
 
   const currentList = rankings[activeTab] ?? [];
@@ -132,7 +162,7 @@ export default function StockRankingSection({
                 <span className="text-[16px] font-bold text-heading">{stock.name}</span>
               </div>
 
-              {/* 우측: 현재가 + 등락률 + 즐겨찾기 별 */}
+              {/* 우측: 현재가 + 등락률 + 관심종목 하트 */}
               <div className="flex items-center gap-3 text-right">
                 <div>
                   <p className="text-[15px] font-bold text-heading">
@@ -151,13 +181,16 @@ export default function StockRankingSection({
 
                 <button
                   onClick={(e) => toggleFavorite(stock.code, e)}
-                  className="p-1 text-gray-400 hover:text-yellow-400 dark:text-gray-500"
+                  disabled={pending[stock.code]}
+                  aria-label={isFav ? "관심종목 해제" : "관심종목 등록"}
+                  className="p-1 disabled:opacity-50"
                 >
-                  {isFav ? (
-                    <span className="text-[18px] text-yellow-400">★</span>
-                  ) : (
-                    <span className="text-[18px]">☆</span>
-                  )}
+                  <Heart
+                    size={20}
+                    strokeWidth={1.8}
+                    fill={isFav ? "currentColor" : "none"}
+                    className={isFav ? "text-red-500" : "text-gray-400 dark:text-gray-500"}
+                  />
                 </button>
               </div>
             </Link>
