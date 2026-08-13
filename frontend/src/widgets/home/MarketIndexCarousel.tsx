@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 import Card from "@/shared/ui/Card";
-import type { MarketIndexMock } from "@/shared/mock/homeMockData";
+import type { MarketIndexDetail } from "@/entities/stock/types";
 
 interface MarketIndexCarouselProps {
-  indices: MarketIndexMock[];
+  indices: MarketIndexDetail[];
 }
 
 export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProps) {
@@ -32,7 +32,7 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
               <p className="text-[13px] font-medium text-caption">{idx.title}</p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-[28px] font-bold tracking-tight text-heading">
-                  {idx.value}
+                  {idx.value.toLocaleString()}
                 </span>
               </div>
               <p
@@ -40,42 +40,32 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
                   idx.isUp ? "text-market-up" : "text-market-down"
                 }`}
               >
-                ▲ {idx.change} ({idx.changePercent})
+                {idx.isUp ? "▲" : "▼"} {Math.abs(idx.change).toLocaleString()} (
+                {idx.isUp ? "+" : ""}
+                {idx.changePercent.toFixed(2)}%)
               </p>
             </div>
 
             {/* 주체별 수급 현황 (개인, 외국인, 기관) */}
             <div className="mt-1 flex items-center justify-between border-t border-border-soft/60 pt-2.5 text-[12px]">
-              <div className="flex flex-col items-center">
-                <span className="text-caption">개인</span>
-                <span
-                  className={`mt-0.5 font-bold ${
-                    idx.investors.personal >= 0 ? "text-market-up" : "text-market-down"
-                  }`}
-                >
-                  {idx.investors.personal.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-caption">외국인</span>
-                <span
-                  className={`mt-0.5 font-bold ${
-                    idx.investors.foreign >= 0 ? "text-market-up" : "text-market-down"
-                  }`}
-                >
-                  {idx.investors.foreign.toLocaleString()}
-                </span>
-              </div>
-              <div className="flex flex-col items-center">
-                <span className="text-caption">기관</span>
-                <span
-                  className={`mt-0.5 font-bold ${
-                    idx.investors.inst >= 0 ? "text-market-up" : "text-market-down"
-                  }`}
-                >
-                  {idx.investors.inst.toLocaleString()}
-                </span>
-              </div>
+              {(
+                [
+                  { label: "개인", value: idx.investors.personal },
+                  { label: "외국인", value: idx.investors.foreign },
+                  { label: "기관", value: idx.investors.institution },
+                ] as const
+              ).map((row) => (
+                <div key={row.label} className="flex flex-col items-center">
+                  <span className="text-caption">{row.label}</span>
+                  <span
+                    className={`mt-0.5 font-bold ${
+                      row.value >= 0 ? "text-market-up" : "text-market-down"
+                    }`}
+                  >
+                    {row.value.toLocaleString()}
+                  </span>
+                </div>
+              ))}
             </div>
           </Card>
         ))}

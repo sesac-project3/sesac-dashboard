@@ -3,20 +3,33 @@
 import { useState } from "react";
 import Link from "next/link";
 import Card from "@/shared/ui/Card";
-import type { StockRankingMock } from "@/shared/mock/homeMockData";
+import type { RankingType, StockRankingItem } from "@/entities/stock/types";
 
 interface StockRankingSectionProps {
-  rankings: Record<string, StockRankingMock[]>;
+  rankings: Record<RankingType, StockRankingItem[]>;
   timestamp: string;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
-const TABS = ["인기검색", "상승률", "하락률", "거래대금", "거래량"];
+const TABS: RankingType[] = ["상승률", "하락률", "거래대금", "거래량"];
+
+// 종목마다 고정된 색/이니셜 — 백엔드가 로고를 안 주므로 종목코드 기준으로 프론트에서만 결정.
+const LOGO_STYLE: Record<string, { bg: string; text: string }> = {
+  "005930": { bg: "bg-blue-600", text: "SEC" },
+  "000660": { bg: "bg-red-500", text: "SK" },
+  "005380": { bg: "bg-blue-700", text: "HD" },
+  "373220": { bg: "bg-emerald-600", text: "LGE" },
+  "042660": { bg: "bg-orange-500", text: "한화" },
+};
 
 export default function StockRankingSection({
   rankings,
   timestamp,
+  onRefresh,
+  refreshing,
 }: StockRankingSectionProps) {
-  const [activeTab, setActiveTab] = useState("인기검색");
+  const [activeTab, setActiveTab] = useState<RankingType>("상승률");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
 
   const toggleFavorite = (code: string, e: React.MouseEvent) => {
@@ -25,14 +38,37 @@ export default function StockRankingSection({
     setFavorites((prev) => ({ ...prev, [code]: !prev[code] }));
   };
 
-  const currentList = rankings[activeTab] || rankings["인기검색"] || [];
+  const currentList = rankings[activeTab] ?? [];
 
   return (
     <Card className="flex flex-col gap-4">
-      {/* 타이틀 및 기준시각 */}
+      {/* 타이틀 및 기준시각 + 새로고침 */}
       <div className="flex items-center justify-between">
         <h3 className="text-[18px] font-bold text-heading">국내주식 랭킹</h3>
-        <span className="text-[11px] font-medium text-caption">{timestamp}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] font-medium text-caption">{timestamp}</span>
+          <button
+            onClick={onRefresh}
+            disabled={refreshing}
+            aria-label="새로고침"
+            className="p-0.5 text-caption transition-transform hover:text-heading disabled:opacity-50"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M3 12a9 9 0 0 1 15.3-6.4L21 8" />
+              <path d="M21 3v5h-5" />
+              <path d="M21 12a9 9 0 0 1-15.3 6.4L3 16" />
+              <path d="M3 21v-5h5" />
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* 가로 스크롤 탭 버튼 */}
@@ -59,6 +95,7 @@ export default function StockRankingSection({
       <div className="flex flex-col divide-y divide-border-soft/60">
         {currentList.map((stock) => {
           const isFav = favorites[stock.code];
+          const logo = LOGO_STYLE[stock.code] ?? { bg: "bg-gray-400", text: stock.name.slice(0, 2) };
           return (
             <Link
               key={stock.code}
@@ -68,27 +105,26 @@ export default function StockRankingSection({
               {/* 좌측: 로고 + 종목명 */}
               <div className="flex items-center gap-3">
                 <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-white shadow-sm ${stock.logoBg}`}
+                  className={`flex h-9 w-9 items-center justify-center rounded-full text-[11px] font-bold text-white shadow-sm ${logo.bg}`}
                 >
-                  {stock.logoText}
+                  {logo.text}
                 </div>
-                <span className="text-[16px] font-bold text-heading">
-                  {stock.name}
-                </span>
+                <span className="text-[16px] font-bold text-heading">{stock.name}</span>
               </div>
 
               {/* 우측: 현재가 + 등락률 + 즐겨찾기 별 */}
               <div className="flex items-center gap-3 text-right">
                 <div>
                   <p className="text-[15px] font-bold text-heading">
-                    {stock.price}
+                    {stock.price.toLocaleString()}원
                   </p>
                   <p
                     className={`text-[12px] font-bold ${
                       stock.isUp ? "text-market-up" : "text-market-down"
                     }`}
                   >
-                    {stock.changePercent}
+                    {stock.isUp ? "+" : ""}
+                    {stock.changePercent.toFixed(2)}%
                   </p>
                 </div>
 
