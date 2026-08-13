@@ -25,6 +25,9 @@ export default function ShortformCard({
   onVisible?: () => void;
 }) {
   const [showInsight, setShowInsight] = useState(false);
+  // 영상 자체(첫 프레임)가 아직 준비 안 됐을 때 보여줄 스켈레톤 — 영상이 없는 카드(정적
+  // 배경 폴백)는 기다릴 게 없으니 처음부터 true.
+  const [videoReady, setVideoReady] = useState(!shortform.videoUrl);
   // 볼륨/음소거는 이 카드만의 상태가 아니라 전체 숏폼 피드가 공유하는 값이다(다음 영상으로
   // 스크롤해도 유지돼야 하므로) — useSyncExternalStore로 모듈 스코프 store를 구독한다.
   const { volume, muted: isMuted } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -109,7 +112,10 @@ export default function ShortformCard({
           ref={videoRef}
           src={shortform.videoUrl}
           onClick={toggleInsight}
-          className="h-full w-full cursor-pointer object-cover"
+          onLoadedData={() => setVideoReady(true)}
+          className={`h-full w-full cursor-pointer object-cover transition-opacity duration-300 ${
+            videoReady ? "opacity-100" : "opacity-0"
+          }`}
           // preload="auto": 기본값(metadata)이면 브라우저가 play()를 부를 때가 돼서야
           // 본편을 받기 시작해서, 큰 영상으로 스크롤해 오면 그때 랙이 걸린다. 배치 윈도우
           // 밖(preload=false)인 카드는 "none"으로 둬서 아직 안 쓸 영상까지 미리 받아
@@ -124,6 +130,15 @@ export default function ShortformCard({
         <div
           onClick={toggleInsight}
           className={`h-full w-full cursor-pointer bg-gradient-to-br ${SENTIMENT_GRADIENT[shortform.sentiment]}`}
+        />
+      )}
+
+      {/* 영상 첫 프레임 로딩 중 스켈레톤 — 홈/관심종목과 같은 animate-pulse + bg-surface 패턴 */}
+      {!videoReady && (
+        <div
+          className="pointer-events-none absolute inset-0 animate-pulse bg-surface"
+          aria-label="영상을 불러오는 중"
+          aria-busy="true"
         />
       )}
 
