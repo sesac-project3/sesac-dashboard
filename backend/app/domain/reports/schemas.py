@@ -7,6 +7,8 @@ class PeerComparisonRow(BaseModel):
     per: float
     pbr: float
     roe: float
+    operating_margin: float | None = None
+
 
 
 class FinancialRow(BaseModel):

@@ -51,29 +51,29 @@ def classify_sentiment(headline: str, db_sentiment: str | None) -> str:
 # 5종목 동종 업계 기본 데이터 (F-03-5)
 PEER_GROUPS = {
     "005930": [
-        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85),
-        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15),
-        PeerComparisonRow(name="TSMC", per=32.34, pbr=10.48, roe=39.97),
+        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85, operating_margin=10.8),
+        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15, operating_margin=44.1),
+        PeerComparisonRow(name="TSMC", per=32.34, pbr=10.48, roe=39.97, operating_margin=40.0),
     ],
     "000660": [
-        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15),
-        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85),
-        PeerComparisonRow(name="Micron", per=19.49, pbr=9.84, roe=66.64),
+        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15, operating_margin=44.1),
+        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85, operating_margin=10.8),
+        PeerComparisonRow(name="Micron", per=19.49, pbr=9.84, roe=66.64, operating_margin=22.5),
     ],
     "005380": [
-        PeerComparisonRow(name="현대자동차", per=12.44, pbr=0.92, roe=8.41),
-        PeerComparisonRow(name="기아", per=7.56, pbr=0.85, roe=12.92),
-        PeerComparisonRow(name="Toyota", per=8.48, pbr=0.95, roe=11.70),
+        PeerComparisonRow(name="현대자동차", per=12.44, pbr=0.92, roe=8.41, operating_margin=7.4),
+        PeerComparisonRow(name="기아", per=7.56, pbr=0.85, roe=12.92, operating_margin=11.2),
+        PeerComparisonRow(name="Toyota", per=8.48, pbr=0.95, roe=11.70, operating_margin=9.8),
     ],
     "373220": [
-        PeerComparisonRow(name="LG에너지솔루션", per=-80.38, pbr=4.27,roe=-5.1),
-        PeerComparisonRow(name="삼성SDI", per=-106.14, pbr=2.15, roe=-2.02,),
-        PeerComparisonRow(name="CATL", per=34.55, pbr=4.47, roe=24.77),
+        PeerComparisonRow(name="LG에너지솔루션", per=-80.38, pbr=4.27, roe=-5.1, operating_margin=1.8),
+        PeerComparisonRow(name="삼성SDI", per=-106.14, pbr=2.15, roe=-2.02, operating_margin=2.3),
+        PeerComparisonRow(name="CATL", per=34.55, pbr=4.47, roe=24.77, operating_margin=14.5),
     ],
     "042660": [
-        PeerComparisonRow(name="한화오션", per=18.90, pbr=4.24, roe=22.59),
-        PeerComparisonRow(name="HD한국조선해양", per=10.36, pbr=1.92, roe=17.78),
-        PeerComparisonRow(name="삼성중공업", per=35.77, pbr=4.64, roe=13.74),
+        PeerComparisonRow(name="한화오션", per=18.90, pbr=4.24, roe=22.59, operating_margin=6.6),
+        PeerComparisonRow(name="HD한국조선해양", per=10.36, pbr=1.92, roe=17.78, operating_margin=5.2),
+        PeerComparisonRow(name="삼성중공업", per=35.77, pbr=4.64, roe=13.74, operating_margin=4.1),
     ],
 }
 
