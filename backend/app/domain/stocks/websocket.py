@@ -1,7 +1,11 @@
 from fastapi import WebSocket, WebSocketDisconnect
 
 from app.common.security import decode_access_token
-from app.domain.stocks.candle_store import MARKET_INTERVALS, get_candle_snapshot
+from app.domain.stocks.candle_store import (
+    MARKET_INTERVALS,
+    get_candle_snapshot,
+    get_quote_snapshot,
+)
 from app.domain.stocks.market_subscription import (
     market_websocket_manager,
 )
@@ -32,9 +36,11 @@ async def handle_market_websocket(websocket: WebSocket, token: str | None) -> No
                         await get_candle_snapshot(stock_code, interval)
                         for interval in MARKET_INTERVALS
                     ]
+                    quote_snapshot = await get_quote_snapshot(stock_code)
                 else:
                     await market_websocket_manager.unsubscribe(websocket, stock_code)
                     snapshots = []
+                    quote_snapshot = None
                 await websocket.send_json({
                     "type": f"{message_type}d",
                     "stockCode": stock_code,
@@ -45,6 +51,11 @@ async def handle_market_websocket(websocket: WebSocket, token: str | None) -> No
                     await websocket.send_json({
                         **snapshot,
                         "type": "candle_snapshot",
+                    })
+                if quote_snapshot is not None:
+                    await websocket.send_json({
+                        **quote_snapshot,
+                        "type": "quote_snapshot",
                     })
             else:
                 await websocket.send_json({

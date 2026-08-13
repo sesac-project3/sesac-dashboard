@@ -12,7 +12,7 @@ from app.core.database import SessionLocal
 from app.core.kis import kis_token_client
 from app.domain.stocks.models import Stock, StockDailyCandle
 from app.domain.stocks.service import persist_live_minute_candle
-from app.domain.stocks.candle_store import publish_candle, store_minute_candle
+from app.domain.stocks.candle_store import publish_candle, publish_quote, store_minute_candle
 from app.domain.stocks.market_subscription import MarketWebSocketManager
 
 logger = logging.getLogger(__name__)
@@ -242,9 +242,22 @@ class KisMarketStream:
             return
         stock_code = values[0]
         price = _to_int(values[2])
+        change_price = _signed_change(values[3], values[4])
+        change_rate = _signed_change_rate(values[3], values[5])
         volume = _to_int(values[13])
         if price <= 0:
             return
+
+        await publish_quote(stock_code, {
+            "type": "quote_update",
+            "stockCode": stock_code,
+            "currentPrice": price,
+            "changePrice": change_price,
+            "changeRate": change_rate,
+            "changeDirection": _change_direction(change_price),
+            "previousClosePrice": price - change_price,
+            "updatedAt": datetime.now(KST).isoformat(),
+        })
         traded_at = _minute_bucket(datetime.now(KST))
         candle = self._candles.get(stock_code)
         if candle is not None and candle.traded_at != traded_at:
@@ -290,6 +303,31 @@ def _to_int(value: str) -> int:
         return int(value.replace(",", ""))
     except (TypeError, ValueError):
         return 0
+
+
+def _to_float(value: str) -> float:
+    try:
+        return float(value.replace(",", ""))
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _signed_change(sign: str, value: str) -> int:
+    change = abs(_to_int(value))
+    return -change if sign in {"4", "5"} else change
+
+
+def _signed_change_rate(sign: str, value: str) -> float:
+    rate = abs(_to_float(value))
+    return -rate if sign in {"4", "5"} else rate
+
+
+def _change_direction(change_price: int) -> str:
+    if change_price > 0:
+        return "UP"
+    if change_price < 0:
+        return "DOWN"
+    return "EVEN"
 
 
 def _load_candle_seeds(
