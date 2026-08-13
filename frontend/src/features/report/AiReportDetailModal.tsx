@@ -387,53 +387,6 @@ export default function AiReportDetailModal({
               })()}
             </div>
           </div>
-
-          {/* 블록 6. 52주 주가 위치 */}
-          <div className="rounded-2xl border border-slate-200/80 bg-white p-5 space-y-4 shadow-sm mb-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <BarChart2 className="h-5 w-5 text-[#3182F6]" />
-                <h4 className="font-bold text-[#191F28] text-base">6. 52주 주가 위치</h4>
-              </div>
-            </div>
-
-            <div className="space-y-4 pt-1">
-              {/* 상단 현재가 뱃지 & 게이지 바 통합 영역 */}
-              <div className="relative w-full pt-6 pb-2">
-                {/* 현재가 파스텔 뱃지 */}
-                <div
-                  className="absolute -top-1 -translate-x-1/2 transition-all duration-500 whitespace-nowrap"
-                  style={{ left: `${priceBandRatio}%` }}
-                >
-                  <span className="px-2.5 py-0.5 text-[11px] font-bold text-[#3182F6] bg-[#E8F3FF] rounded-full shadow-xs">
-                    현재가 {report.currentPrice?.toLocaleString()}원
-                  </span>
-                </div>
-
-                {/* 그라데이션 게이지 트랙 바 */}
-                <div className="relative h-2 w-full rounded-full bg-[#D1D5DB]">
-                  {/* 현재가 위치 흰색/파란 테두리 원형 도트 마크 */}
-                  <div
-                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-[3px] border-[#3182F6] shadow-md transition-all duration-500 z-10"
-                    style={{ left: `${priceBandRatio}%` }}
-                  />
-                </div>
-              </div>
-
-              {/* 하단 52주 최저 / 최고 범위 */}
-              <div className="flex justify-between text-xs text-[#6B7684] font-medium">
-                <span>52주 최저: {report.week52Low?.toLocaleString()}원</span>
-                <span>52주 최고: {report.week52High?.toLocaleString()}원</span>
-              </div>
-            </div>
-
-            {report.valuationComment && (
-              <p className="text-xs text-[#4E5968] bg-[#F9FAFB] p-3.5 rounded-xl border border-slate-100 leading-relaxed">
-                <Lightbulb className="mr-1 inline h-3.5 w-3.5 text-[#FF9500]" aria-hidden="true" />
-                {report.valuationComment}
-              </p>
-            )}
-          </div>
         </div>
       </div>
     </div>

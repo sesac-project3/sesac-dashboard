@@ -197,7 +197,10 @@ def calculate_stock_opinion(
         qualitative_signal = "중립적 관망 구간입니다"
     elif total_score >= -0.30:
         opinion = "HOLD"
-        qualitative_signal = "혼조된 신호를 보이고 있습니다"
+        if operating_margin is not None and operating_margin >= 30.0:
+            qualitative_signal = "실적은 우수하나 단기 주가 변동성 혼조 구간입니다"
+        else:
+            qualitative_signal = "혼조된 신호를 보이고 있습니다"
     else:
         opinion = "SELL"
         qualitative_signal = "부담스러운 구간입니다"
@@ -231,10 +234,12 @@ def generate_investment_summary(
         summary = f"{price_str}{opm_str}수익성 및 주요 지표 흐름이 우수하여 {qualitative_signal}. {news_summary}업종 내 상대적 퀀트 매력도가 유지되는 상태입니다."
     elif opinion == "SELL":
         summary = f"{price_str}단기 변동성 및 밸류에이션 여건으로 인해 {qualitative_signal}. {news_summary}리스크 관리가 요구되는 상태입니다."
+    elif "단기 주가 변동성" in qualitative_signal or "혼조" in qualitative_signal:
+        summary = f"{price_str}{opm_str}펀더멘털 및 실적은 우수하나 최근 단기 주가 조정 및 높은 시장 변동성으로 인해 현재 {qualitative_signal}. {news_summary}단기 리스크 관리를 병행하는 관망 흐름을 보이고 있습니다."
     elif qualitative_signal == "중립적 관망 구간입니다":
         summary = f"{price_str}{opm_str}실적 흐름과 주가 밴드 위치를 감안할 때 {qualitative_signal}. {news_summary}시장 재평가 추이를 지켜보는 단계입니다."
     else:
-        summary = f"{price_str}주요 퀀트 지표 및 수급 신호가 {qualitative_signal}. {news_summary}시장 상황을 다각도로 관찰하는 흐름을 보이고 있습니다."
+        summary = f"{price_str}주요 퀀트 지표 및 실적·가격 흐름이 {qualitative_signal}. {news_summary}시장 상황을 다각도로 관찰하는 흐름을 보이고 있습니다."
 
     return summary
 
@@ -255,12 +260,17 @@ def build_comprehensive_reasons(
     종합 분석하여 최종 종합 판단(opinion: BUY/HOLD/SELL)과 100% 모순 없이 일치하는 Top 3 이유 문장 동적 생성.
     """
     reasons = []
+    is_sell = opinion in ("SELL", "매도")
+    is_buy = opinion in ("BUY", "매수")
 
     # 1. 밸류에이션 / PER 신호 (5번 동종업계 섹션)
     if per is not None and per > 0:
-        if opinion == "SELL" and per >= 25.0:
-            reasons.append(f"PER {per:.1f}배 수준으로 단기 밸류에이션 평가 부담 존재")
-        elif opinion == "BUY" and per <= 15.0:
+        if is_sell:
+            if per >= 25.0:
+                reasons.append(f"PER {per:.1f}배 수준으로 단기 밸류에이션 평가 부담 존재")
+            else:
+                reasons.append(f"PER {per:.1f}배 수준 감안 시 단기 밸류에이션 리스크 관찰 필요")
+        elif is_buy and per <= 15.0:
             reasons.append(f"PER {per:.1f}배 수준으로 동종 업계 대비 밸류에이션 매력 확보")
         else:
             reasons.append(f"PER {per:.1f}배 수준으로 업계 적정 밸류에이션 범위 유지")
@@ -268,32 +278,42 @@ def build_comprehensive_reasons(
     # 2. 52주 주가 위치 신호 (6번 52주위치 섹션)
     if week52_high and week52_low and current_price and week52_high > week52_low:
         pos_ratio = ((current_price - week52_low) / (week52_high - week52_low)) * 100
-        if opinion == "SELL" and pos_ratio >= 75.0:
-            reasons.append(f"주가가 52주 밴드 상단부({pos_ratio:.0f}%)에 위치해 단기 차익실현 유의")
-        elif opinion == "BUY" and pos_ratio <= 35.0:
+        if is_sell:
+            if pos_ratio >= 75.0:
+                reasons.append(f"주가가 52주 밴드 상단부({pos_ratio:.0f}%)에 위치해 단기 차익실현 유의")
+            else:
+                reasons.append(f"52주 밴드 중간({pos_ratio:.0f}%) 구간 위치 및 단기 변동성 유의")
+        elif is_buy and pos_ratio <= 35.0:
             reasons.append(f"52주 밴드 하단부({pos_ratio:.0f}%) 구간 진입으로 주가 가격 부담 완화")
         else:
             reasons.append(f"52주 밴드 중간({pos_ratio:.0f}%) 구간 내 적정 주가 위치 형성")
 
     # 3. 실적 & 영업이익률/성장성 신호 (2번 성장성 섹션)
-    if operating_margin is not None:
-        if opinion == "BUY" and operating_margin >= 15.0:
-            reasons.append(f"영업이익률({operating_margin:.1f}%) 우수로 견조한 실적 및 수익성 지지")
-        elif opinion == "SELL" and operating_margin < 12.0:
+    if is_sell:
+        if operating_margin is not None and operating_margin < 12.0:
             reasons.append(f"영업이익률({operating_margin:.1f}%) 감안 시 성장 모멘텀 관찰 필요")
+        else:
+            reasons.append("단기 변동성 확대에 따른 리스크 관리 필요")
+    elif operating_margin is not None:
+        if operating_margin >= 15.0:
+            reasons.append(f"영업이익률({operating_margin:.1f}%) 우수로 견조한 실적 및 수익성 지지")
         else:
             reasons.append(f"매출액 및 영업이익 성장세 지속 (영업이익률 {operating_margin:.1f}%)")
     elif revenue_trend:
         reasons.append(f"연간 매출액 {revenue_trend} 추세 반영")
 
-    # 4. 변동성 / 리스크 체크 신호 (3번 리스크 섹션) - 3개 보장용
-    if len(reasons) < 3:
-        if volatility_score is not None and volatility_score >= 70.0:
-            reasons.append(f"시장 변동성 점수({volatility_score:.0f}점) 확대에 따른 리스크 관리 필요")
-        elif opinion == "SELL":
+    # 4. 변동성 / 리스크 체크 신호 (3번 리스크 섹션) - 변동성이 높거나 3개 미만 시 반영
+    if volatility_score is not None and volatility_score >= 70.0:
+        risk_msg = f"최근 단기 주가 조정 및 변동성({volatility_score:.0f}점) 확대에 따른 리스크 유의"
+        if len(reasons) >= 3:
+            reasons[2] = risk_msg
+        else:
+            reasons.append(risk_msg)
+    elif len(reasons) < 3:
+        if is_sell:
             reasons.append("단기 시장 변동성 확대로 인한 리스크 관리 필요")
-        elif opinion == "HOLD":
-            reasons.append("시장 수급 상황 및 단기 이슈 재평가 방향성 관찰 필요")
+        elif opinion in ("HOLD", "보유"):
+            reasons.append("최근 단기 주가 조정 및 변동성 확대에 따른 리스크 유의")
         else:
             reasons.append("주요 수급 및 퀀트 지표 개선 흐름 지속")
 
