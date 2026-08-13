@@ -172,6 +172,11 @@ class KisMarketStream:
         self._initialized_codes.discard(stock_code)
 
     async def _run(self) -> None:
+        # 여기서 재연결을 트리거하는 건 실제 연결 끊김(finally의 should_retry)뿐이다 —
+        # approval_key 만료 자체는 재연결 사유가 아니다. 이미 열려 있는 연결은 접속키가
+        # 24시간을 넘겨도 그대로 유지되고, 재연결이 실제로 필요해질 때만
+        # _send_subscription → kis_token_client.approval_key()가 그 시점 기준으로
+        # 유효하면 재사용, 만료됐으면 재발급한다.
         try:
             async with websockets.connect(
                 f"{kis_token_client.websocket_url().rstrip('/')}{KIS_WEBSOCKET_PATH}",

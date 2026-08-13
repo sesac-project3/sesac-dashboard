@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -6,6 +7,11 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.common.exceptions import BusinessException, business_exception_handler
 from app.core.config import settings
+
+# 루트 로거 레벨 기본값(WARNING)을 그대로 두면 logger.info(...)가 전부 조용히 버려진다 —
+# app/core/kis.py의 "[KIS] New access token issued." 같은 개발용 안내 로그를 포함해서,
+# 지금까지 이 앱의 어떤 info 로그도 실제로 출력된 적이 없었다. INFO까지는 보이게 설정.
+logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 from app.domain.auth.router import router as auth_router
 from app.domain.community.router import router as community_router
 from app.domain.news.router import router as news_router
