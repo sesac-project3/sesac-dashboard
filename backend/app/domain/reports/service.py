@@ -11,6 +11,7 @@ from app.domain.reports.scoring import (
     calculate_valuation_band,
     calculate_stock_opinion,
     generate_investment_summary,
+    build_comprehensive_reasons,
 )
 
 
@@ -66,13 +67,13 @@ def classify_sentiment(headline: str, db_sentiment: str | None) -> str:
 # 5종목 동종 업계 기본 데이터 (F-03-5)
 PEER_GROUPS = {
     "005930": [
-        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85, operating_margin=10.8),
-        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15, operating_margin=44.1),
+        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85, operating_margin=14.8),
+        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15, operating_margin=52.0),
         PeerComparisonRow(name="TSMC", per=32.34, pbr=10.48, roe=39.97, operating_margin=40.0),
     ],
     "000660": [
-        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15, operating_margin=44.1),
-        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85, operating_margin=10.8),
+        PeerComparisonRow(name="SK하이닉스", per=13.78, pbr=8.30, roe=44.15, operating_margin=52.0),
+        PeerComparisonRow(name="삼성전자", per=18.27, pbr=1.87, roe=10.85, operating_margin=14.8),
         PeerComparisonRow(name="Micron", per=19.49, pbr=9.84, roe=66.64, operating_margin=22.5),
     ],
     "005380": [
@@ -125,7 +126,7 @@ class ReportService:
             {"stock_id": stock_id, "report_date": today_str},
         ).fetchone()
 
-        if cached:
+        if cached and cached.current_price is not None and cached.risk_scores is not None:
             peer_list = None
             if cached.peer_comparison:
                 peer_list = [PeerComparisonRow(**item) for item in cached.peer_comparison]
@@ -136,11 +137,26 @@ class ReportService:
 
             _, _, _, comment = calculate_valuation_band([w_high], [w_low], c_price)
 
+            peer_target_per = peer_list[0].per if (peer_list and len(peer_list) > 0) else None
+            peer_target_pbr = peer_list[0].pbr if (peer_list and len(peer_list) > 0) else None
+            vol_score = cached.risk_scores.get("시장변동성") if isinstance(cached.risk_scores, dict) else None
+
+            dynamic_reasons = build_comprehensive_reasons(
+                opinion=cached.judgement,
+                per=peer_target_per,
+                pbr=peer_target_pbr,
+                week52_high=w_high,
+                week52_low=w_low,
+                current_price=c_price,
+                revenue_trend=cached.revenue_trend,
+                volatility_score=vol_score,
+            )
+
             return StockReport(
                 stockCode=stock_code,
                 reportDate=today_str,
                 judgement=cached.judgement,
-                judgementReasons=cached.judgement_reasons,
+                judgementReasons=dynamic_reasons,
                 revenueTrend=cached.revenue_trend,
                 operatingProfitTrend=cached.operating_profit_trend,
                 operatingMarginTrend=cached.operating_margin_trend,
@@ -347,17 +363,25 @@ class ReportService:
                 float(fin_rows[1].operating_profit), float(fin_rows[0].operating_profit)
             )
 
+        dynamic_reasons = build_comprehensive_reasons(
+            opinion=opinion,
+            per=per_val,
+            pbr=pbr_val,
+            week52_high=week52_high,
+            week52_low=week52_low,
+            current_price=current_price,
+            operating_margin=latest_opm,
+            revenue_trend=rev_trend,
+            volatility_score=risk_scores.get("시장변동성"),
+        )
+
         return StockReport(
             stockCode=stock_code,
             reportDate=today_str,
             judgement=opinion,
             qualitativeSignal=qual_signal,
             investmentSummary=inv_summary,
-            judgementReasons=[
-                "최근 52주 밴드 내 적정 주가 위치 형성",
-                "동종 업계 대비 밸류에이션 매력 유지",
-                "매출액 및 영업이익 성장세 지속"
-            ],
+            judgementReasons=dynamic_reasons,
             revenueTrend=rev_trend,
             operatingProfitTrend=profit_trend,
             operatingMarginTrend=margin_trend,

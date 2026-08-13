@@ -239,3 +239,64 @@ def generate_investment_summary(
     return summary
 
 
+def build_comprehensive_reasons(
+    opinion: str,
+    per: float | None = None,
+    pbr: float | None = None,
+    week52_high: float | None = None,
+    week52_low: float | None = None,
+    current_price: float | None = None,
+    operating_margin: float | None = None,
+    revenue_trend: str | None = None,
+    volatility_score: float | None = None,
+) -> list[str]:
+    """
+    F-03-1: 리포트 하단 2번~6번 섹션 수치(PER, 52주 주가위치, 영업이익률, 매출추세, 변동성 점수)를
+    종합 분석하여 최종 종합 판단(opinion: BUY/HOLD/SELL)과 100% 모순 없이 일치하는 Top 3 이유 문장 동적 생성.
+    """
+    reasons = []
+
+    # 1. 밸류에이션 / PER 신호 (5번 동종업계 섹션)
+    if per is not None and per > 0:
+        if opinion == "SELL" and per >= 25.0:
+            reasons.append(f"PER {per:.1f}배 수준으로 단기 밸류에이션 평가 부담 존재")
+        elif opinion == "BUY" and per <= 15.0:
+            reasons.append(f"PER {per:.1f}배 수준으로 동종 업계 대비 밸류에이션 매력 확보")
+        else:
+            reasons.append(f"PER {per:.1f}배 수준으로 업계 적정 밸류에이션 범위 유지")
+
+    # 2. 52주 주가 위치 신호 (6번 52주위치 섹션)
+    if week52_high and week52_low and current_price and week52_high > week52_low:
+        pos_ratio = ((current_price - week52_low) / (week52_high - week52_low)) * 100
+        if opinion == "SELL" and pos_ratio >= 75.0:
+            reasons.append(f"주가가 52주 밴드 상단부({pos_ratio:.0f}%)에 위치해 단기 차익실현 유의")
+        elif opinion == "BUY" and pos_ratio <= 35.0:
+            reasons.append(f"52주 밴드 하단부({pos_ratio:.0f}%) 구간 진입으로 주가 가격 부담 완화")
+        else:
+            reasons.append(f"52주 밴드 중간({pos_ratio:.0f}%) 구간 내 적정 주가 위치 형성")
+
+    # 3. 실적 & 영업이익률/성장성 신호 (2번 성장성 섹션)
+    if operating_margin is not None:
+        if opinion == "BUY" and operating_margin >= 15.0:
+            reasons.append(f"영업이익률({operating_margin:.1f}%) 우수로 견조한 실적 및 수익성 지지")
+        elif opinion == "SELL" and operating_margin < 12.0:
+            reasons.append(f"영업이익률({operating_margin:.1f}%) 감안 시 성장 모멘텀 관찰 필요")
+        else:
+            reasons.append(f"매출액 및 영업이익 성장세 지속 (영업이익률 {operating_margin:.1f}%)")
+    elif revenue_trend:
+        reasons.append(f"연간 매출액 {revenue_trend} 추세 반영")
+
+    # 4. 변동성 / 리스크 체크 신호 (3번 리스크 섹션) - 3개 보장용
+    if len(reasons) < 3:
+        if volatility_score is not None and volatility_score >= 70.0:
+            reasons.append(f"시장 변동성 점수({volatility_score:.0f}점) 확대에 따른 리스크 관리 필요")
+        elif opinion == "SELL":
+            reasons.append("단기 시장 변동성 확대로 인한 리스크 관리 필요")
+        elif opinion == "HOLD":
+            reasons.append("시장 수급 상황 및 단기 이슈 재평가 방향성 관찰 필요")
+        else:
+            reasons.append("주요 수급 및 퀀트 지표 개선 흐름 지속")
+
+    return reasons[:3]
+
+
