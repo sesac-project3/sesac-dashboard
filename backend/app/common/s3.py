@@ -1,7 +1,8 @@
 """ISSUE-E3: S3에 종목별로 미리 올려둔 긍정/부정 배경 영상을 조회한다.
 
 네이밍 컨벤션: `{종목명}_positive.mp4` / `{종목명}_negative.mp4`
-(예: 삼성전자_positive.mp4, 삼성전자_negative.mp4). 영상은 이 프로젝트가 만드는 게 아니라
+(예: 삼성전자_positive.mp4, 삼성전자_negative.mp4). `{종목명}_긍정.mp4` / `{종목명}_부정.mp4`
+같은 한글 접미사로 올라온 것도 있어 둘 다 시도한다. 영상은 이 프로젝트가 만드는 게 아니라
 사전에 누군가 S3에 올려두는 것이 전제라, 여기서는 "가져오는" 쪽만 담당한다.
 """
 
@@ -14,7 +15,9 @@ from typing import Literal
 
 logger = logging.getLogger(__name__)
 
-SENTIMENT_SUFFIX: dict[str, str] = {"긍정": "positive", "부정": "negative"}
+# 문서화된 컨벤션은 영문 접미사(positive/negative)지만, 실제 업로드가 한글 접미사
+# (긍정/부정)로 올라온 경우가 있어(예: LG에너지솔루션_긍정.mp4) 둘 다 시도한다.
+SENTIMENT_SUFFIXES: dict[str, list[str]] = {"긍정": ["positive", "긍정"], "부정": ["negative", "부정"]}
 PRESIGNED_URL_EXPIRE_SECONDS = 3600
 # presigned URL은 서명에 만료시각이 박혀 있어서 매번 새로 발급하면 매번 다른 문자열이 된다.
 # <video src>가 요청마다 바뀌면 브라우저가 "같은 영상"인 줄 모르고 HTTP 캐시를 못 써서
@@ -25,8 +28,8 @@ URL_CACHE_TTL_SECONDS = PRESIGNED_URL_EXPIRE_SECONDS - 300
 NOT_FOUND_CACHE_TTL_SECONDS = 60  # 아직 안 올라온 영상은 짧게만 "없음"을 캐싱(계속 S3 두드리지 않게)
 
 
-def build_video_key(stock_name: str, sentiment: Literal["긍정", "부정"]) -> str:
-    return f"{stock_name}_{SENTIMENT_SUFFIX[sentiment]}.mp4"
+def build_video_keys(stock_name: str, sentiment: Literal["긍정", "부정"]) -> list[str]:
+    return [f"{stock_name}_{suffix}.mp4" for suffix in SENTIMENT_SUFFIXES[sentiment]]
 
 
 def _key_candidates(key: str) -> list[str]:
@@ -82,7 +85,12 @@ def get_shortform_video_url(stock_name: str, sentiment: Literal["긍정", "부�
     client = get_s3_client()
     found_key: str | None = None
 
-    for key in _key_candidates(build_video_key(stock_name, sentiment)):
+    candidates = [
+        candidate
+        for base_key in build_video_keys(stock_name, sentiment)
+        for candidate in _key_candidates(base_key)
+    ]
+    for key in candidates:
         try:
             client.head_object(Bucket=settings.aws_s3_bucket, Key=key)
             found_key = key

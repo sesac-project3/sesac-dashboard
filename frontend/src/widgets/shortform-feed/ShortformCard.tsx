@@ -181,7 +181,7 @@ export default function ShortformCard({
       </div>
 
       {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치 */}
-      <div className="pointer-events-auto absolute right-3 bottom-28 flex flex-col items-center gap-5">
+      <div className="pointer-events-auto absolute right-3 bottom-[212px] flex flex-col items-center gap-5">
         <LikeButton shortformId={shortform.id} initialCount={shortform.likeCount} />
       </div>
 

@@ -89,11 +89,12 @@ CREATE TRIGGER trg_market_indices_updated_at
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
--- 5. news — 뉴스 + 토스 커뮤니티 통합 (F-03-4, F-05)
+-- 5. data_source — 뉴스 + 토스 커뮤니티 통합 (F-03-4, F-05)
+--    실제 배포명은 data_source (news는 설계 당시 가칭)
 --    종류가 '토스_커뮤니티'면 url은 항상 NULL
 --    raw 데이터 매핑은 SCHEMA.md 참고
 -- ============================================================
-CREATE TABLE news (
+CREATE TABLE data_source (
     id           BIGSERIAL PRIMARY KEY,
     date         DATE NOT NULL,                            -- 날짜
     stock_id     INTEGER NOT NULL REFERENCES stocks(id),   -- 종목명
@@ -106,15 +107,15 @@ CREATE TABLE news (
         CHECK (source_type <> '토스_커뮤니티' OR url IS NULL)
 );
 
-CREATE INDEX idx_news_stock_date ON news (stock_id, date);
+CREATE INDEX idx_data_source_stock_date ON data_source (stock_id, date);
 
-CREATE TRIGGER trg_news_updated_at
-    BEFORE UPDATE ON news
+CREATE TRIGGER trg_data_source_updated_at
+    BEFORE UPDATE ON data_source
     FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
 -- 6. sentiment_analysis — (날짜, 종목) 단위 감성 라벨 (F-03-4, F-05)
---    news와 (stock_id, date)로 조인해서 사용
+--    data_source와 (stock_id, date)로 조인해서 사용
 -- ============================================================
 CREATE TABLE sentiment_analysis (
     id          BIGSERIAL PRIMARY KEY,
@@ -151,7 +152,7 @@ CREATE TRIGGER trg_financial_statements_updated_at
 
 -- ============================================================
 -- 8. stock_reports — AI 종목 리포트 1일 1회 배치 캐시 (F-03, ISSUE-C1~C4/D1~D3)
---    블록4(최신뉴스)는 news + sentiment_analysis 조인으로 별도 조회, 여기엔 저장하지 않음
+--    블록4(최신뉴스)는 data_source + sentiment_analysis 조인으로 별도 조회, 여기엔 저장하지 않음
 -- ============================================================
 CREATE TABLE stock_reports (
     id                       BIGSERIAL PRIMARY KEY,
@@ -199,7 +200,7 @@ CREATE TABLE shortforms (
     video_url       TEXT NOT NULL,                          -- S3 사전 저장 배경 영상
     subtitle_text   TEXT NOT NULL,                           -- LLM 생성 자막 (접근성 병행 노출, PRD §8)
     ai_insight      TEXT,                                    -- AI INSIGHT 패널 핵심 포인트 3줄
-    news_id         BIGINT REFERENCES news(id),              -- 자막 원문 뉴스 (사실관계 추적용, PRD §9.3)
+    news_id         BIGINT REFERENCES data_source(id),       -- 자막 원문 뉴스 (사실관계 추적용, PRD §9.3)
     view_count      INTEGER NOT NULL DEFAULT 0,
     like_count      INTEGER NOT NULL DEFAULT 0,
     published_date  DATE NOT NULL,

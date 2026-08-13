@@ -18,7 +18,7 @@ class Shortform(Base, TimestampMixin):
     video_url: Mapped[str] = mapped_column(Text)
     subtitle_text: Mapped[str] = mapped_column(Text)
     ai_insight: Mapped[str | None] = mapped_column(Text, nullable=True)
-    news_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("news.id"), nullable=True)
+    news_id: Mapped[int | None] = mapped_column(BigInteger, ForeignKey("data_source.id"), nullable=True)
     view_count: Mapped[int] = mapped_column(Integer, default=0)
     like_count: Mapped[int] = mapped_column(Integer, default=0)
     published_date: Mapped[date] = mapped_column(Date)
