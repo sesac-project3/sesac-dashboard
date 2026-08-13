@@ -11,7 +11,7 @@ const TABS = [
   { href: "/", label: "홈", Icon: HomeIcon },
   { href: "/shortform", label: "숏폼", Icon: ShortformIcon },
   { href: "/watchlist", label: "관심종목", Icon: WatchlistIcon },
-  { href: "/login", label: "내 정보", Icon: ProfileIcon },
+  { href: "/profile", label: "내 정보", Icon: ProfileIcon },
 ] as const;
 
 export default function BottomTabBar() {
