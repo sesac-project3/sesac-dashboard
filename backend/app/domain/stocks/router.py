@@ -27,9 +27,10 @@ from app.domain.stocks.websocket import handle_market_websocket
 router = APIRouter(prefix="/stocks", tags=["stocks"])
 
 
-@router.get("/{stock_id}/sentiments/weekly", response_model=ApiResponse[WeeklySentimentResponse])
-def weekly_sentiments(stock_id: int, db: Session = Depends(get_db)):
-    return ApiResponse.ok(get_weekly_stock_sentiments(db, stock_id))
+@router.get("/{stock_id_or_code}/sentiments/weekly", response_model=ApiResponse[WeeklySentimentResponse])
+def weekly_sentiments(stock_id_or_code: str, db: Session = Depends(get_db)):
+    return ApiResponse.ok(get_weekly_stock_sentiments(db, stock_id_or_code))
+
 
 
 

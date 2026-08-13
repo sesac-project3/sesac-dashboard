@@ -30,8 +30,16 @@ EMOJI_MAP = {
 }
 
 
-def get_weekly_stock_sentiments(db: Session, stock_id: int) -> WeeklySentimentResponse:
-    """어제 날짜(yesterday) 이하 기준 최근 7일치 주식 감정 날씨 데이터 조회."""
+def get_weekly_stock_sentiments(db: Session, identifier: str) -> WeeklySentimentResponse:
+    """어제 날짜(yesterday) 이하 기준 최근 7일치 주식 감정 날씨 데이터 조회 (stock_id 또는 stock_code)."""
+    stock_id: int = 1
+    if identifier.isdigit() and len(identifier) < 6:
+        stock_id = int(identifier)
+    else:
+        stock = db.scalar(select(Stock).where(Stock.code == identifier))
+        if stock:
+            stock_id = stock.id
+
     yesterday = datetime.now(KST).date() - timedelta(days=1)
     rows = db.scalars(
         select(SentimentAnalysis)
@@ -56,6 +64,7 @@ def get_weekly_stock_sentiments(db: Session, stock_id: int) -> WeeklySentimentRe
     ]
 
     return WeeklySentimentResponse(stockId=stock_id, weeklySentiments=items)
+
 
 
 

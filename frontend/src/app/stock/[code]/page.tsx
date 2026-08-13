@@ -2,6 +2,7 @@ import { API_BASE_URL } from "@/shared/config/env";
 import type { StockReport } from "@/entities/report/types";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
+import WeeklySentimentWeather from "@/widgets/stock-weather/WeeklySentimentWeather";
 
 async function fetchReport(code: string): Promise<StockReport | null> {
   try {
@@ -102,6 +103,8 @@ export default async function StockReportPage({
             ))}
           </Card>
         )}
+
+        <WeeklySentimentWeather stockCode={code} />
 
         <p className="text-center text-[12px] leading-[1.5] text-caption">
           본 정보는 투자 참고 자료이며 투자 권유가 아닙니다.
