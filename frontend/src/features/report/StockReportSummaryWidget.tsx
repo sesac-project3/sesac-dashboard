@@ -5,7 +5,6 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import type { StockReport } from "@/entities/report/types";
 import AiReportDetailModal from "./AiReportDetailModal";
 import Card from "@/shared/ui/Card";
-import PillButton from "@/shared/ui/PillButton";
 
 interface StockReportSummaryWidgetProps {
   report: StockReport | null;
@@ -90,14 +89,14 @@ export default function StockReportSummaryWidget({
           </div>
         )}
 
-        {/* 리포트 전체 보기 CTA 버튼 */}
+        {/* 리포트 전체 보기 CTA 버튼 — full width, pill, height 52px, primary indigo(#542BE9) fill */}
         <button
           type="button"
           onClick={() => setIsModalOpen(true)}
-          className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold bg-[#3182F6] hover:bg-[#1B64DA] text-white rounded-xl shadow-sm transition active:scale-[0.98] cursor-pointer"
+          className="flex h-[52px] w-full items-center justify-center gap-1 rounded-full bg-primary text-[15px] font-medium text-white transition active:scale-[0.98]"
         >
           <span>리포트 전체 보기</span>
-          <ArrowRight className="h-4 w-4 text-white" />
+          <ArrowRight className="h-4 w-4" aria-hidden="true" />
         </button>
       </Card>
 

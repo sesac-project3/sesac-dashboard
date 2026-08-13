@@ -72,15 +72,6 @@ body {
   color: var(--foreground);
 }
 
-@keyframes drawer-up {
-  from { transform: translateY(100%); }
-  to { transform: translateY(0); }
-}
-
-.animate-drawer-up {
-  animation: drawer-up 400ms ease-out both;
-}
-
 /* 스크롤은 그대로 되지만 스크롤바만 안 보이게 (캐러셀/스와이프 피드처럼 스와이프로만
    넘기는 걸 전제로 한 스크롤 영역에 사용). Tailwind엔 기본 유틸리티가 없어서 직접 정의. */
 .no-scrollbar {
@@ -90,4 +81,23 @@ body {
 
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
+}
+
+/* 숏폼 카드 볼륨 슬라이더 — 조절점(thumb) 기본 크기가 커서 브라우저 기본값보다
+   작게 줄임. accent-color만으로는 thumb 크기를 못 줄여서 직접 정의. */
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: white;
 }

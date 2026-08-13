@@ -20,7 +20,10 @@ export default function AiReportDetailModal({
   // 동종업계 비교 탭 상태 ("opm" | "per" | "pbr" | "roe")
   const [peerTab, setPeerTab] = useState<"opm" | "per" | "pbr" | "roe">("opm");
 
-  if (!isOpen || !report) return null;
+  // 부모(StockReportSummaryWidget)가 이 모달을 항상 마운트해두고 isOpen prop만 토글하는
+  // 구조라, 언마운트 지연 없이 isOpen을 그대로 CSS 트랜지션에 물리면 열고 닫을 때 둘 다
+  // 자연스럽게 애니메이션된다 — DOM에서 안 사라지니 exit 트랜지션이 항상 재생된다.
+  if (!report) return null;
 
   const getPeerValue = (peer: PeerComparisonRow, tab: "opm" | "per" | "pbr" | "roe") => {
     if (tab === "opm") return peer.operating_margin ?? peer.operatingMargin ?? null;
@@ -74,9 +77,17 @@ export default function AiReportDetailModal({
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
+    <div
+      className={`fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300 ease-out ${
+        isOpen ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+      aria-hidden={!isOpen}
+      onClick={onClose}
+    >
       <div
-        className="animate-drawer-up relative flex h-[90vh] w-full max-w-[480px] flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-[#F8F9FA] text-[#191F28] shadow-2xl"
+        className={`relative flex h-[90vh] w-full max-w-[480px] flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-[#F8F9FA] text-[#191F28] shadow-2xl transition-transform duration-300 ease-out ${
+          isOpen ? "translate-y-0" : "translate-y-full"
+        }`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 모달 헤더 */}
