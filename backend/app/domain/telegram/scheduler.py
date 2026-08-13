@@ -59,7 +59,7 @@ async def send_morning_briefing(db: Session):
             watchlist_text = "<b>2. 관심종목 정보</b>\n등록된 관심종목이 없습니다. 웹 대시보드에서 관심종목을 등록하시면 분석 알림을 받으실 수 있습니다.\n"
 
         briefing_text = (
-            f"🌤️ <b>[오전 시장 브리핑] {today_date.strftime('%Y년 %m%d일')}</b>\n\n"
+            f"🌤️ <b>[오전 시장 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
             f"<b>1. 주요 지수 마감 정보</b>\n"
             f"• 코스피: {kospi_text}\n"
             f"• 코스닥: {kosdaq_text}\n\n"
@@ -134,7 +134,7 @@ async def send_evening_briefing(db: Session):
             watchlist_text = "<b>2. 관심종목 정보</b>\n등록된 관심종목이 없습니다.\n"
 
         briefing_text = (
-            f"🔔 <b>[장 마감 브리핑] {today_date.strftime('%Y년 %m%d일')}</b>\n\n"
+            f"🔔 <b>[장 마감 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
             f"오늘 국내 증시 및 관심종목 마감 결과입니다.\n\n"
             f"<b>1. 시장 지수 마감</b>\n"
             f"• 코스피: {kospi_text}\n"
