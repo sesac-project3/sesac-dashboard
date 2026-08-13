@@ -70,25 +70,6 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
           </Card>
         ))}
       </div>
-
-      {/* 하단 인디케이터 도트 및 전체보기 */}
-      <div className="flex items-center justify-between px-1 text-[12px] text-caption">
-        <span>투자자동향 : 금액(억원)</span>
-        <div className="flex items-center gap-1.5">
-          {indices.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setActiveIndex(i)}
-              className={`h-1.5 rounded-full transition-all ${
-                i === activeIndex ? "w-4 bg-heading" : "w-1.5 bg-gray-300 dark:bg-gray-700"
-              }`}
-            />
-          ))}
-        </div>
-        <button className="font-medium text-caption hover:text-heading">
-          전체보기 &gt;
-        </button>
-      </div>
     </div>
   );
 }
