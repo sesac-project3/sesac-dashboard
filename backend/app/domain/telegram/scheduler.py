@@ -32,6 +32,9 @@ async def send_morning_briefing(db: Session):
         elif idx.indexType == "KOSDAQ":
             kosdaq_text = f"{idx.value:,.2f} ({'+' if idx.isUp else ''}{idx.changePercent:.2f}%)"
 
+    stock_items = fetch_stock_ranking_items(db)
+    price_by_code = {item.code: item for item in stock_items}
+
     # Find all users linked to Telegram
     users = db.scalars(select(User).where(User.telegram_chat_id != None)).all()
     for user in users:
@@ -53,28 +56,53 @@ async def send_morning_briefing(db: Session):
 
         watchlist_text = ""
         if watchlist_stocks:
-            watchlist_text = "<b>2. 관심종목 개장 전 주요 뉴스</b>\n"
+            watchlist_text = "<b>2. 관심종목 개장 전 AI 감성 날씨</b>\n"
+            from sqlalchemy import text
             for stock in watchlist_stocks:
-                report = report_service.get_stock_report(db, stock.code)
-                news_title = "최근 등록된 뉴스가 없습니다."
-                news_sentiment = ""
-                if report and report.latestNews:
-                    first_news = report.latestNews[0]
-                    news_title = first_news.title
-                    news_sentiment = f" ({first_news.sentiment})"
-                watchlist_text += f"• <b>{stock.name}({stock.code})</b>: \"{news_title}\"{news_sentiment}\n"
+                # Calculate sentiment weather from data_source
+                sent_rows = db.execute(
+                    text("""
+                        SELECT sentiment, COUNT(*) as cnt
+                        FROM data_source
+                        WHERE stock_id = :stock_id
+                        GROUP BY sentiment
+                    """),
+                    {"stock_id": stock.id},
+                ).fetchall()
+                
+                sent_counts = {str(r.sentiment).lower(): int(r.cnt) for r in sent_rows if r.sentiment}
+                pos = sent_counts.get("긍정", 0) + sent_counts.get("positive", 0)
+                neg = sent_counts.get("부정", 0) + sent_counts.get("negative", 0)
+                neu = sent_counts.get("중립", 0) + sent_counts.get("neutral", 0)
+                tot = pos + neg + neu
+                
+                if tot > 0:
+                    pos_ratio = pos / tot
+                    neg_ratio = neg / tot
+                    if pos_ratio >= 0.55:
+                        weather = f"맑음 ☀️ (긍정 {pos_ratio*100:.0f}%)"
+                    elif neg_ratio >= 0.35:
+                        weather = f"비 ☔ (부정 {neg_ratio*100:.0f}%)"
+                    else:
+                        weather = "흐림 ☁️ (중립 우세)"
+                else:
+                    weather = "흐림 ☁️ (의견 없음)"
+                
+                item = price_by_code.get(stock.code)
+                price_str = f"{item.price:,.0f}원" if item else "가격정보 없음"
+                watchlist_text += f"• <b>{stock.name}({stock.code})</b>: 전일가 {price_str} — <b>{weather}</b>\n"
         else:
             watchlist_text = "<b>2. 관심종목 정보</b>\n등록된 관심종목이 없습니다. 웹 대시보드에서 관심종목을 등록하시면 분석 알림을 받으실 수 있습니다.\n"
 
         briefing_text = (
             f"🌤️ <b>[오전 시장 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
-            f"국내 증시 개장 전, 전일 마감 정보 및 관심종목 최신 뉴스 요약입니다.\n\n"
+            f"국내 증시 개장 전, 전일 마감 정보 및 관심종목 AI 감성 날씨 요약입니다.\n\n"
             f"<b>1. 전일 국내 증시 마감</b>\n"
             f"• 코스피: {kospi_text}\n"
             f"• 코스닥: {kosdaq_text}\n\n"
             f"{watchlist_text}\n"
             f"<b>3. 오늘의 투자 관전 포인트</b>\n"
-            f"• 어제 장 마감 동향과 관심종목들의 개장 전 최신 뉴스를 바탕으로 금일 시황 변동성에 대비해 실시간 캔들을 예의주시하세요.\n\n"
+            f"• 전일 장 마감 동향과 관심종목들의 어제자 감성 날씨 지표를 바탕으로 오늘 장 개장 시 변동성에 유의하며 캔들을 예의주시하세요.\n\n"
             f"오늘도 성공적인 투자 하루 되세요! 👍"
         )
 
