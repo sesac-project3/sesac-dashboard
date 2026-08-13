@@ -8,8 +8,8 @@ import LikeButton from "@/features/shortform-like/LikeButton";
 import { getResumePosition, saveVideoPosition } from "@/widgets/shortform-feed/videoPositionStore";
 
 const SENTIMENT_GRADIENT: Record<Shortform["sentiment"], string> = {
-  긍정: "from-rose-500 to-orange-400",
-  부정: "from-slate-700 to-slate-900",
+  POS: "from-rose-500 to-orange-400",
+  NEG: "from-slate-700 to-slate-900",
 };
 
 export default function ShortformCard({
@@ -24,6 +24,7 @@ export default function ShortformCard({
   onVisible?: () => void;
 }) {
   const [showInsight, setShowInsight] = useState(false);
+  const [isMuted, setIsMuted] = useState(true);
   const toggleInsight = () => setShowInsight((v) => !v);
   const insightLines = shortform.aiInsight?.split("\n").filter(Boolean) ?? [];
 
@@ -107,7 +108,7 @@ export default function ShortformCard({
           // 대역폭을 낭비하지 않는다 — 배치 확장은 ShortformFeed가 담당.
           preload={preload ? "auto" : "none"}
           loop
-          muted
+          muted={isMuted}
           playsInline
         />
       ) : (
@@ -138,7 +139,7 @@ export default function ShortformCard({
       <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
         <span className="rounded-full bg-black/40 px-2 py-1 text-xs">
           {shortform.stockName} ·{" "}
-          <span className={shortform.sentiment === "긍정" ? "text-market-up" : "text-market-down"}>
+          <span className={shortform.sentiment === "POS" ? "text-market-up" : "text-market-down"}>
             {shortform.sentiment}
           </span>
         </span>
@@ -183,6 +184,20 @@ export default function ShortformCard({
 
       {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치 */}
       <div className="pointer-events-auto absolute right-3 bottom-[212px] flex flex-col items-center gap-5">
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsMuted(!isMuted);
+          }}
+          className="flex h-10 w-10 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition hover:bg-black/60 active:scale-95"
+          title={isMuted ? "소리 켜기" : "음소거"}
+        >
+          {isMuted ? (
+            <span className="text-lg">🔇</span>
+          ) : (
+            <span className="text-lg">🔊</span>
+          )}
+        </button>
         <LikeButton
           shortformId={shortform.id}
           initialLiked={shortform.liked}
