@@ -13,23 +13,36 @@ from app.domain.stocks.candle_store import (
 )
 
 MARKET_SUBSCRIBERS_PREFIX = "market:subscribers:"
+MAX_CONNECTIONS_PER_USER = 2
 
 
 class MarketWebSocketManager:
     def __init__(self) -> None:
         self._subscriptions: dict[WebSocket, set[str]] = defaultdict(set)
         self._connection_ids: dict[WebSocket, str] = {}
+        self._user_connections: dict[int, set[WebSocket]] = defaultdict(set)
         self._lock = asyncio.Lock()
 
-    async def connect(self, websocket: WebSocket) -> None:
+    async def connect(self, websocket: WebSocket, user_id: int) -> bool:
         async with self._lock:
+            if len(self._user_connections[user_id]) >= MAX_CONNECTIONS_PER_USER:
+                return False
             self._connection_ids[websocket] = uuid4().hex
             self._subscriptions[websocket]
+            self._user_connections[user_id].add(websocket)
+            websocket.state.user_id = user_id
+            return True
 
     async def disconnect(self, websocket: WebSocket) -> None:
         async with self._lock:
             stock_codes = self._subscriptions.pop(websocket, set())
             connection_id = self._connection_ids.pop(websocket, None)
+            user_id = getattr(websocket.state, "user_id", None)
+            if user_id is not None:
+                connections = self._user_connections[user_id]
+                connections.discard(websocket)
+                if not connections:
+                    self._user_connections.pop(user_id, None)
         if connection_id is None:
             return
         for stock_code in stock_codes:
