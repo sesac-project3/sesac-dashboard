@@ -189,11 +189,11 @@ export default function ShortformCard({
               // 토글이라 터치 기기(호버 없음)에서도 동일하게 동작한다.
               onMouseEnter={() => setShowInsight(true)}
               onMouseLeave={() => setShowInsight(false)}
-              className={`pointer-events-auto rounded-full px-2 py-1 text-xs font-medium transition-colors ${
+              className={`pointer-events-auto rounded-full px-2.5 py-1 text-sm font-medium transition-colors ${
                 showInsight ? "bg-primary text-white" : "bg-black/40 text-white"
               }`}
             >
-              <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
+              <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" /> AI INSIGHT
             </button>
           )}
         </div>
@@ -235,7 +235,7 @@ export default function ShortformCard({
       {/* 하단: 종목명/자막(캡션) + CTA — 자막은 접근성 위해 항상 텍스트로 노출 (PRD §8) */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-3 bg-gradient-to-t from-black/80 to-transparent p-4 pb-6">
         <div className="pointer-events-auto rounded-xl bg-black/50 px-3 py-2 backdrop-blur-[2px]">
-          <p className="text-[13px] font-semibold text-white/80">
+          <p className="text-[18px] font-semibold text-white/80">
             {shortform.stockName} · {shortform.stockCode}
           </p>
           <p className="mt-1 text-[14px] leading-[1.5]">{shortform.subtitleText}</p>
