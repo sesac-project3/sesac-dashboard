@@ -10,7 +10,7 @@ export default function ExchangeRateBar({ rates }: ExchangeRateBarProps) {
   if (!rates || rates.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-4 overflow-x-auto rounded-xl bg-gray-50/80 px-4 py-2.5 text-[13px] whitespace-nowrap scrollbar-none dark:bg-gray-800/40">
+    <div className="flex items-center gap-4 overflow-x-auto rounded-xl bg-gray-50/80 px-4 py-2.5 text-[13px] whitespace-nowrap no-scrollbar dark:bg-gray-800/40">
       {rates.map((r) => (
         <div key={r.currency} className="flex items-center gap-1.5">
           <span

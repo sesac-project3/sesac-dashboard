@@ -48,7 +48,7 @@ export default function ShortformFeed({ shortforms }: { shortforms: Shortform[] 
   );
 
   return (
-    <div className="h-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain">
+    <div className="no-scrollbar h-full snap-y snap-mandatory overflow-y-scroll overscroll-y-contain">
       {mergedShortforms.map((sf, index) => (
         <div key={sf.id} className="h-full w-full snap-start snap-always">
           <ShortformCard

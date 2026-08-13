@@ -123,7 +123,7 @@ export default function StockRankingSection({
       </div>
 
       {/* 가로 스크롤 탭 버튼 */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+      <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
         {TABS.map((tab) => {
           const isActive = tab === activeTab;
           return (

@@ -94,7 +94,7 @@ export default function AiReportDetailModal({
         </div>
 
         {/* 모달 본문 스크롤 영역 */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-[#F8F9FA]">
+        <div className="no-scrollbar flex-1 overflow-y-auto p-6 space-y-6 bg-[#F8F9FA]">
           {/* 히어로 배너 (밝은 토스 블루 스타일) */}
           <div className="rounded-2xl bg-[#3182F6] p-6 text-white shadow-md">
             <span className="text-xs font-semibold text-blue-100 uppercase tracking-wider">
@@ -313,7 +313,7 @@ export default function AiReportDetailModal({
             </div>
 
             {/* 4개 지표 탭 */}
-            <div className="flex gap-1.5 border-b border-slate-100 pb-3 overflow-x-auto">
+            <div className="flex gap-1.5 border-b border-slate-100 pb-3 overflow-x-auto no-scrollbar">
               {[
                 { id: "opm", label: "영업이익률" },
                 { id: "per", label: "PER" },
