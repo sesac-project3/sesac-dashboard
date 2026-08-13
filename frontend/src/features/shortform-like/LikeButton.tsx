@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toggleShortformLike } from "@/shared/api/shortforms";
 import { getAccessToken } from "@/shared/api/base";
@@ -38,34 +38,47 @@ export default function LikeButton({
   const router = useRouter();
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
-  const [pending, setPending] = useState(false);
   const [popping, setPopping] = useState(false);
+  // 서버 응답을 기다리는 동안에도 리렌더를 더 유발하지 않도록 ref로 진행 중 요청을 추적.
+  const inFlight = useRef(false);
 
-  const onClick = async () => {
+  // 낙관적 업데이트: 서버 응답 기다리지 않고 하트/카운트를 바로 바꾸고, 실제 토글은
+  // 백그라운드에서 처리한다. 실패했을 때만 원래 값으로 되돌린다(관심종목 하트와 동일 패턴).
+  const onClick = () => {
     if (!getAccessToken()) {
       router.push("/login");
       return;
     }
-    if (pending) return;
-    setPending(true);
+
     setPopping(true);
     setTimeout(() => setPopping(false), 200);
-    try {
-      const result = await toggleShortformLike(shortformId);
-      setLiked(result.liked);
-      setCount(result.likeCount);
-    } catch {
-      // ponytail: 토스트 없이 조용히 무시 — 재시도는 버튼 다시 누르면 됨
-    } finally {
-      setPending(false);
-    }
+
+    const previousLiked = liked;
+    const previousCount = count;
+    const nextLiked = !previousLiked;
+    setLiked(nextLiked);
+    setCount(previousCount + (nextLiked ? 1 : -1));
+
+    if (inFlight.current) return; // 같은 버튼에 이미 요청이 나가 있으면 낙관적 표시만 갱신
+    inFlight.current = true;
+    toggleShortformLike(shortformId)
+      .then((result) => {
+        setLiked(result.liked);
+        setCount(result.likeCount);
+      })
+      .catch(() => {
+        setLiked(previousLiked);
+        setCount(previousCount);
+      })
+      .finally(() => {
+        inFlight.current = false;
+      });
   };
 
   // DESIGN_SPEC.md §26: right rail 아이콘 — 큰 아이콘 + 작은 label(카운트).
   return (
     <button
       onClick={onClick}
-      disabled={pending}
       className="flex flex-col items-center gap-1 text-white"
       aria-label={liked ? "좋아요 취소" : "좋아요"}
     >
