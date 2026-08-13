@@ -117,3 +117,23 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks, 
         )
 
     return {"status": "ok"}
+
+
+@router.post("/test/morning-briefing", response_model=ApiResponse[str])
+async def test_morning_briefing(db: Session = Depends(get_db)):
+    from app.domain.telegram.scheduler import send_morning_briefing
+    await send_morning_briefing(db)
+    return ApiResponse.ok("오전 브리핑 모의 발송이 완료되었습니다.")
+
+@router.post("/test/evening-briefing", response_model=ApiResponse[str])
+async def test_evening_briefing(db: Session = Depends(get_db)):
+    from app.domain.telegram.scheduler import send_evening_briefing
+    await send_evening_briefing(db)
+    return ApiResponse.ok("오후 브리핑 모의 발송이 완료되었습니다.")
+
+@router.post("/test/price-alert", response_model=ApiResponse[str])
+async def test_price_alert(db: Session = Depends(get_db)):
+    from app.domain.telegram.scheduler import check_price_alerts
+    await check_price_alerts(db)
+    return ApiResponse.ok("주가 지수대비 비교 급변동 경보 모의 체크 및 발송이 완료되었습니다.")
+
