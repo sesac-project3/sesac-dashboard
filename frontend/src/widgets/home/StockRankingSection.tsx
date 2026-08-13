@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart } from "lucide-react";
@@ -61,7 +61,9 @@ export default function StockRankingSection({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<RankingType>("상승률");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
-  const [pending, setPending] = useState<Record<string, boolean>>({});
+  // 요청 진행 여부는 렌더에 안 쓰니 ref로 — state로 두면 그 자체가 리렌더를 한 번 더
+  // 유발해서(버튼 disabled 갱신) 클릭 반응이 미세하게 늦어진다.
+  const inFlight = useRef<Set<string>>(new Set());
 
   // 로그인 상태에서만 실제 관심종목 목록을 불러온다 — 비로그인이면 빈 상태로 둔다
   // (LikeButton과 동일 패턴: 하트 누를 때 로그인 안 돼있으면 그때 /login으로 보냄).
@@ -74,23 +76,27 @@ export default function StockRankingSection({
       });
   }, []);
 
-  const toggleFavorite = async (code: string, e: React.MouseEvent) => {
+  // 낙관적 업데이트: 하트는 클릭 즉시 뒤집고, 실제 등록/해제는 백그라운드에서 서버와 맞춘다.
+  // 서버 응답을 기다렸다가 화면을 바꾸면 그 네트워크 왕복 시간만큼 버튼이 굼떠 보인다 —
+  // 실패했을 때만 원래 상태로 되돌리면 되고, 흔치 않은 실패를 위해 매번 기다릴 이유는 없다.
+  // Redux/Redis는 이 목적(버튼 하나의 낙관적 토글)엔 과함 — 컴포넌트 로컬 상태로 충분.
+  const toggleFavorite = (code: string, e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     if (!getAccessToken()) {
       router.push("/login");
       return;
     }
-    if (pending[code]) return;
-    setPending((prev) => ({ ...prev, [code]: true }));
-    try {
-      const result = await toggleWatchlist(code);
-      setFavorites((prev) => ({ ...prev, [code]: result.inWatchlist }));
-    } catch {
-      // ponytail: 토스트 없이 조용히 무시 — 다시 누르면 재시도됨
-    } finally {
-      setPending((prev) => ({ ...prev, [code]: false }));
-    }
+
+    const previous = !!favorites[code];
+    setFavorites((prev) => ({ ...prev, [code]: !previous }));
+
+    if (inFlight.current.has(code)) return; // 같은 종목에 이미 요청이 나가 있으면 낙관적 표시만 갱신
+    inFlight.current.add(code);
+    toggleWatchlist(code)
+      .then((result) => setFavorites((prev) => ({ ...prev, [code]: result.inWatchlist })))
+      .catch(() => setFavorites((prev) => ({ ...prev, [code]: previous })))
+      .finally(() => inFlight.current.delete(code));
   };
 
   const currentList = rankings[activeTab] ?? [];
@@ -181,9 +187,8 @@ export default function StockRankingSection({
 
                 <button
                   onClick={(e) => toggleFavorite(stock.code, e)}
-                  disabled={pending[stock.code]}
                   aria-label={isFav ? "관심종목 해제" : "관심종목 등록"}
-                  className="p-1 disabled:opacity-50"
+                  className="p-1 transition-transform active:scale-90"
                 >
                   <Heart
                     size={20}
