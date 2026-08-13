@@ -26,7 +26,7 @@ interface StockChartProps {
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
 const formatVolume = (value: number) => {
-  if (value >= 1_000) return `${Math.floor(value / 1_000).toLocaleString("ko-KR")}K`;
+  if (value > 1_000_000) return `${Math.floor(value / 1_000).toLocaleString("ko-KR")}K`;
   return value.toLocaleString("ko-KR");
 };
 
