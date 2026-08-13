@@ -64,12 +64,17 @@ class LiveAggregateCandle:
     close_price: int
     volume: int
     display_at: datetime | None = None
+    last_cumulative_volume: int | None = None
 
-    def update(self, price: int, volume: int) -> None:
+    def update(self, price: int, volume: int, cumulative_volume: int | None = None) -> None:
         self.high_price = max(self.high_price, price)
         self.low_price = min(self.low_price, price)
         self.close_price = price
-        self.volume += volume
+        if cumulative_volume is None:
+            self.volume += volume
+        elif self.last_cumulative_volume is not None:
+            self.volume += max(0, cumulative_volume - self.last_cumulative_volume)
+        self.last_cumulative_volume = cumulative_volume
 
     def as_message(self, stock_code: str) -> dict[str, object]:
         display_at = self.display_at or self.traded_at
@@ -179,6 +184,8 @@ class KisMarketStream:
                 f"{kis_token_client.websocket_url().rstrip('/')}{KIS_WEBSOCKET_PATH}",
                 open_timeout=10,
                 close_timeout=5,
+                ping_interval=20,
+                ping_timeout=20,
             ) as connection:
                 self._connection = connection
                 async with self._lock:
@@ -192,6 +199,8 @@ class KisMarketStream:
                     await self._handle_message(raw)
         except asyncio.CancelledError:
             raise
+        except websockets.exceptions.ConnectionClosedError as exc:
+            logger.warning("KIS market WebSocket closed unexpectedly: %s", exc)
         except Exception:
             logger.exception("KIS market WebSocket stopped")
         finally:
@@ -244,7 +253,8 @@ class KisMarketStream:
         price = _to_int(values[2])
         change_price = _signed_change(values[3], values[4])
         change_rate = _signed_change_rate(values[3], values[5])
-        volume = _to_int(values[13])
+        trade_volume = _to_int(values[12])
+        cumulative_volume = _to_int(values[13])
         if price <= 0:
             return
 
@@ -274,10 +284,10 @@ class KisMarketStream:
                 candle.as_message(stock_code),
             )
         if candle is None or candle.traded_at != traded_at:
-            candle = LiveMinuteCandle(traded_at, price, price, price, price, volume)
+            candle = LiveMinuteCandle(traded_at, price, price, price, price, trade_volume)
             self._candles[stock_code] = candle
         else:
-            candle.update(price, volume)
+            candle.update(price, trade_volume)
         minute_message = candle.as_message(stock_code)
         await store_minute_candle(stock_code, minute_message)
         for interval in ("DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"):
@@ -285,11 +295,18 @@ class KisMarketStream:
             bucket = _aggregate_bucket(traded_at, interval)
             if aggregate is None or aggregate.traded_at != bucket:
                 aggregate = LiveAggregateCandle(
-                    interval, bucket, price, price, price, price, volume
+                    interval,
+                    bucket,
+                    price,
+                    price,
+                    price,
+                    price,
+                    cumulative_volume if interval in {"DAILY", "WEEKLY", "MONTHLY"} else trade_volume,
+                    last_cumulative_volume=cumulative_volume,
                 )
                 self._aggregate_candles[(stock_code, interval)] = aggregate
             else:
-                aggregate.update(price, volume)
+                aggregate.update(price, trade_volume, cumulative_volume)
             await publish_candle(stock_code, aggregate.as_message(stock_code))
 
     async def _initialize_candles(self, stock_code: str) -> None:
@@ -373,6 +390,7 @@ def _load_candle_seeds(
             "DAILY", _aggregate_bucket(now, "DAILY"), today_candle["open"],
             today_candle["high"], today_candle["low"], today_candle["close"],
             today_candle["volume"],
+            last_cumulative_volume=today_candle["volume"],
         )
     }
     for interval in ("WEEKLY", "MONTHLY"):
@@ -405,6 +423,7 @@ def _load_candle_seeds(
                 if interval == "WEEKLY" and period_rows
                 else _date_at_midnight(today)
             ),
+            last_cumulative_volume=today_candle["volume"],
         )
     return seeds
 
