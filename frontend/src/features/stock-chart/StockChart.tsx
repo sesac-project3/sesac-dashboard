@@ -25,6 +25,10 @@ interface StockChartProps {
 }
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
+const formatVolume = (value: number) => {
+  if (value >= 1_000) return `${Math.floor(value / 1_000).toLocaleString("ko-KR")}K`;
+  return value.toLocaleString("ko-KR");
+};
 
 const formatTooltipTimestamp = (timestamp: string, interval: CandleInterval) => {
   const date = new Date(timestamp.includes("T") ? timestamp : `${timestamp}T00:00:00`);
@@ -171,7 +175,7 @@ export default function StockChart({
       const row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-family:monospace";
       row.style.color = color;
-      row.innerHTML = `<span>${label}</span><span>${formatPrice(value)}</span>`;
+      row.innerHTML = `<span>${label}</span><span>${label === "거래량" ? formatVolume(value) : formatPrice(value)}</span>`;
       element.appendChild(row);
     }
 
