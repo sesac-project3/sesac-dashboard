@@ -27,9 +27,23 @@ PRESIGNED_URL_EXPIRE_SECONDS = 3600
 URL_CACHE_TTL_SECONDS = PRESIGNED_URL_EXPIRE_SECONDS - 300
 NOT_FOUND_CACHE_TTL_SECONDS = 60  # 아직 안 올라온 영상은 짧게만 "없음"을 캐싱(계속 S3 두드리지 않게)
 
+# S3 파일명 업로드 시의 한글/영문 다양한 축약어 매핑 대응
+STOCK_NAME_ALIASES: dict[str, list[str]] = {
+    "삼성전자": ["삼성전자", "삼전"],
+    "SK하이닉스": ["SK하이닉스", "하이닉스"],
+    "현대자동차": ["현대자동차", "현대차", "현차"],
+    "LG에너지솔루션": ["LG에너지솔루션", "LG엔솔", "엘지엔솔"],
+    "한화오션": ["한화오션"]
+}
+
 
 def build_video_keys(stock_name: str, sentiment: Literal["긍정", "부정"]) -> list[str]:
-    return [f"{stock_name}_{suffix}.mp4" for suffix in SENTIMENT_SUFFIXES[sentiment]]
+    aliases = STOCK_NAME_ALIASES.get(stock_name, [stock_name])
+    keys = []
+    for alias in aliases:
+        for suffix in SENTIMENT_SUFFIXES[sentiment]:
+            keys.append(f"{alias}_{suffix}.mp4")
+    return keys
 
 
 def _key_candidates(key: str) -> list[str]:
