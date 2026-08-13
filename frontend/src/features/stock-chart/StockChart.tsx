@@ -10,7 +10,7 @@ import {
   Tooltip,
   type TooltipModel,
 } from "chart.js";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Line } from "react-chartjs-2";
 
 import type { Candle, CandleInterval } from "@/entities/stock/chart-types";
@@ -25,6 +25,26 @@ interface StockChartProps {
 }
 
 const formatPrice = (value: number) => value.toLocaleString("ko-KR");
+const formatVolume = (value: number) => {
+  if (value > 1_000_000) return `${Math.floor(value / 1_000).toLocaleString("ko-KR")}K`;
+  return value.toLocaleString("ko-KR");
+};
+
+const applyRealtimeCandle = (candles: Candle[], realtimeCandle: Candle) => {
+  if (!candles.length) return [realtimeCandle];
+
+  const lastIndex = candles.length - 1;
+  const lastTimestamp = Date.parse(candles[lastIndex].timestamp);
+  const realtimeTimestamp = Date.parse(realtimeCandle.timestamp);
+  const isSameTimestamp =
+    Number.isNaN(lastTimestamp) || Number.isNaN(realtimeTimestamp)
+      ? candles[lastIndex].timestamp === realtimeCandle.timestamp
+      : lastTimestamp === realtimeTimestamp;
+
+  return isSameTimestamp
+    ? [...candles.slice(0, lastIndex), realtimeCandle]
+    : [...candles, realtimeCandle];
+};
 
 const formatTooltipTimestamp = (timestamp: string, interval: CandleInterval) => {
   const date = new Date(timestamp.includes("T") ? timestamp : `${timestamp}T00:00:00`);
@@ -85,6 +105,11 @@ export default function StockChart({
   const [candles, setCandles] = useState<Candle[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
+  const realtimeCandleRef = useRef<Candle | undefined>(realtimeCandle);
+
+  useEffect(() => {
+    realtimeCandleRef.current = realtimeCandle;
+  }, [realtimeCandle]);
 
   useEffect(() => {
     let cancelled = false;
@@ -92,7 +117,9 @@ export default function StockChart({
     getStockCandles(stockCode, interval)
       .then((response) => {
         if (!cancelled) {
-          setCandles(response?.candles ?? []);
+          const nextCandles = response?.candles ?? [];
+          const snapshot = realtimeCandleRef.current;
+          setCandles(snapshot ? applyRealtimeCandle(nextCandles, snapshot) : nextCandles);
           setError(false);
           setIsLoading(false);
         }
@@ -112,7 +139,7 @@ export default function StockChart({
 
   useEffect(() => {
     if (!realtimeCandle) return;
-    setCandles((previous) => (previous.length ? [...previous.slice(0, -1), realtimeCandle] : previous));
+    setCandles((previous) => applyRealtimeCandle(previous, realtimeCandle));
   }, [realtimeCandle]);
 
   if (isLoading) {
@@ -171,7 +198,7 @@ export default function StockChart({
       const row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-family:monospace";
       row.style.color = color;
-      row.innerHTML = `<span>${label}</span><span>${formatPrice(value)}</span>`;
+      row.innerHTML = `<span>${label}</span><span>${label === "거래량" ? formatVolume(value) : formatPrice(value)}</span>`;
       element.appendChild(row);
     }
 
