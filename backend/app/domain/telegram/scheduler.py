@@ -66,7 +66,7 @@ async def send_morning_briefing(db: Session):
             f"{watchlist_text}\n"
             f"<b>3. 오늘의 투자 관전 포인트</b>\n"
             f"• 어제 장 마감 동향과 글로벌 거시 지표에 기반해 오늘 장 개장 시 변동성이 있을 수 있으니 관심종목 실시간 캔들을 예의주시하세요.\n\n"
-            f"👉 <a href='{settings.frontend_base_url}'>대시보드로 이동하기</a>\n\n"
+            f"👉 <a href=\"{settings.frontend_base_url}\">대시보드로 이동하기</a>\n\n"
             f"오늘도 성공적인 투자 하루 되세요! 👍"
         )
 
@@ -126,7 +126,7 @@ async def send_evening_briefing(db: Session):
                     watchlist_text += (
                         f"• <b>{stock.name}({stock.code})</b>: "
                         f"{item.price:,.0f}원 ({sign}{item.changePercent:.2f}%) "
-                        f"[<a href='{settings.frontend_base_url}/stock/{stock.code}'>AI 리포트 딥링크</a>]\n"
+                        f"[<a href=\"{settings.frontend_base_url}/stock/{stock.code}\">AI 리포트 딥링크</a>]\n"
                     )
                 else:
                     watchlist_text += f"• <b>{stock.name}({stock.code})</b>: 가격 정보 없음\n"
@@ -210,7 +210,7 @@ async def check_price_alerts(db: Session):
                     f"• 현재가: {item.price:,.0f}원\n"
                     f"• 당일 등락률: {sign}{item.changePercent:.2f}%\n"
                     f"• {market_type} 지수대비: {diff_sign}{relative_change:.2f}%p {'아웃퍼폼!' if relative_change >= 0 else '언더퍼폼'}\n\n"
-                    f"👉 <a href='{settings.frontend_base_url}/stock/{stock.code}'>종목 심층 AI 분석 보기</a>"
+                    f"👉 <a href=\"{settings.frontend_base_url}/stock/{stock.code}\">종목 심층 AI 분석 보기</a>"
                 )
 
                 try:
