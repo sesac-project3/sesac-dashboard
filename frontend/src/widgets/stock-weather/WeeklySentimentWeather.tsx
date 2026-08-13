@@ -96,7 +96,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
       {/* Title & Navigation Header */}
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-[16px] font-semibold text-heading">
-          <span>🌤️</span> 주간 뉴스 기상도
+          <CloudSun aria-hidden="true" className="h-[18px] w-[18px] text-slate-400" /> 주간 뉴스 기상도
         </h2>
 
         <div className="flex items-center gap-1">
