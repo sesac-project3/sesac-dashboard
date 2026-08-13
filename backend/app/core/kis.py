@@ -24,11 +24,19 @@ class KisTokenClient:
     _TOKEN_PATH = "/oauth2/tokenP"
     _APPROVAL_PATH = "/oauth2/Approval"
 
+    # KIS 토큰 발급은 "1분당 1회"로 막혀 있다. 한 번 발급 실패하면 이 쿨다운 동안은
+    # 재시도 자체를 하지 않는다 — 안 그러면 한 번의 /home-dashboard 요청 안에서만도
+    # 지수 2번+종목 5번, 총 7번을 순서대로 재시도하며 그때마다 새로 실패해서 오히려
+    # 레이트리밋 창이 계속 늘어나는(먼저 실패한 요청이 남은 대기시간을 계속 갱신하는)
+    # 문제가 있었다.
+    _TOKEN_FAILURE_COOLDOWN = timedelta(seconds=55)
+
     def __init__(self) -> None:
         self._access_token: str | None = None
         self._expires_at: datetime | None = None
         self._approval_key: str | None = None
         self._approval_expires_at: datetime | None = None
+        self._token_failed_until: datetime | None = None
         self._lock = Lock()
 
     def access_token(self) -> str:
@@ -40,7 +48,15 @@ class KisTokenClient:
             now = datetime.now(timezone.utc)
             if self._access_token and self._expires_at and now < self._expires_at:
                 return self._access_token
-            return self._issue_token(now)
+            if self._token_failed_until and now < self._token_failed_until:
+                raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+            try:
+                token = self._issue_token(now)
+            except BusinessException:
+                self._token_failed_until = now + self._TOKEN_FAILURE_COOLDOWN
+                raise
+            self._token_failed_until = None
+            return token
 
     def approval_key(self) -> str:
         now = datetime.now(timezone.utc)
