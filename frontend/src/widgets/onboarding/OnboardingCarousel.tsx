@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ArrowDown, ArrowUp, Play, Sparkles } from "lucide-react";
 
 const SLIDES = [
   {
@@ -19,7 +20,7 @@ const SLIDES = [
           >
             <span className="text-[13px] text-caption">{row.label}</span>
             <span className={`text-[14px] font-bold ${row.up ? "text-market-up" : "text-market-down"}`}>
-              {row.up ? "▲" : "▼"} {row.value}
+              {row.up ? <ArrowUp className="mr-1 inline h-3 w-3" aria-hidden="true" /> : <ArrowDown className="mr-1 inline h-3 w-3" aria-hidden="true" />} {row.value}
             </span>
           </div>
         ))}
@@ -32,9 +33,9 @@ const SLIDES = [
     illustration: (
       <div className="relative mx-auto flex h-full w-[120px] flex-col justify-between rounded-2xl bg-heading p-3 text-white shadow-elevated">
         <span className="self-end rounded-full bg-white/20 px-2 py-0.5 text-[10px]">
-          ✨ AI INSIGHT
+          <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
         </span>
-        <span className="self-center text-3xl">▶</span>
+        <Play className="h-8 w-8 self-center fill-current" aria-hidden="true" />
         <span className="text-[11px] leading-snug">
           한화오션, 대형
           <br />

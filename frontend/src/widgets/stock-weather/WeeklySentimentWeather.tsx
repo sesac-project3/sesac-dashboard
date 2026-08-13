@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, CloudRain, CloudSun, Sun } from "lucide-react";
 import Card from "@/shared/ui/Card";
 import { API_BASE_URL } from "@/shared/config/env";
 import type { DailySentimentItem } from "@/shared/api/stocks";
@@ -110,7 +111,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
             }`}
             title={canGoPrev ? "이전 7일" : "처음 데이터입니다"}
           >
-            ‹
+            <ChevronLeft aria-hidden="true" className="h-4 w-4" />
           </button>
           <button
             type="button"
@@ -123,7 +124,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
             }`}
             title={canGoNext ? "다음 7일" : "최신 데이터입니다"}
           >
-            ›
+            <ChevronRight aria-hidden="true" className="h-4 w-4" />
           </button>
         </div>
       </div>
@@ -131,7 +132,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
       {/* Viewport: overflow hidden, always shows exactly 7 items */}
       <div
         ref={containerRef}
-        className="overflow-hidden py-1 cursor-grab active:cursor-grabbing"
+        className="overflow-hidden py-1"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -161,14 +162,20 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
             return (
               <div
                 key={item.date}
-                className="group flex flex-col items-center justify-center rounded-xl bg-slate-50 py-2.5 px-1 mx-[3px] transition-colors hover:bg-slate-100 hover:shadow-sm select-none cursor-pointer"
+                className="group flex flex-col items-center justify-center rounded-xl bg-slate-50 py-2.5 px-1 mx-[3px] transition-colors hover:bg-slate-100 hover:shadow-sm select-none"
                 style={{ width: `calc(${100 / items.length}% - 6px)` }}
               >
                 <span className="text-[10px] font-medium text-caption">{formattedDate}</span>
                 <span className="mt-0.5 text-[11px] font-semibold text-heading">{item.day}</span>
 
                 <span className="mt-1 text-[20px] leading-none select-none transition-transform duration-200 group-hover:scale-110">
-                  {item.emoji}
+                  {item.sentiment === "긍정" ? (
+                    <Sun aria-hidden="true" className="h-5 w-5 text-amber-400" />
+                  ) : item.sentiment === "부정" ? (
+                    <CloudRain aria-hidden="true" className="h-5 w-5 text-sky-400" />
+                  ) : (
+                    <CloudSun aria-hidden="true" className="h-5 w-5 text-slate-400" />
+                  )}
                 </span>
 
                 {/* Hover-only sentiment badge */}
