@@ -91,13 +91,14 @@ export default function StockReportSummaryWidget({
         )}
 
         {/* 리포트 전체 보기 CTA 버튼 */}
-        <PillButton
+        <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
-          className="w-full flex items-center justify-center gap-2 py-3 text-xs font-bold bg-[#3182F6] hover:bg-[#1B64DA] text-white rounded-xl shadow-sm transition"
+          className="w-full flex items-center justify-center gap-2 py-3.5 text-sm font-bold bg-[#3182F6] hover:bg-[#1B64DA] text-white rounded-xl shadow-sm transition active:scale-[0.98] cursor-pointer"
         >
           <span>리포트 전체 보기</span>
-          <ArrowRight className="h-4 w-4" />
-        </PillButton>
+          <ArrowRight className="h-4 w-4 text-white" />
+        </button>
       </Card>
 
       {/* AI 리포트 상세 모달 */}
