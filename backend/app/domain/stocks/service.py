@@ -9,17 +9,54 @@ from sqlalchemy.orm import Session
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.kis import kis_token_client
 from app.core.database import SessionLocal
-from app.domain.stocks.models import Stock, StockDailyCandle, StockMinuteCandle
+from app.domain.stocks.models import SentimentAnalysis, Stock, StockDailyCandle, StockMinuteCandle
 from app.domain.stocks.schemas import (
     CandleBackfillResponse,
     CandleBackfillResult,
+    DailySentimentItem,
     MinuteCandleBackfillResponse,
     MinuteCandleBackfillResult,
+    WeeklySentimentResponse,
 )
 
 KST = ZoneInfo("Asia/Seoul")
 MARKET_OPEN = "090000"
 MARKET_CLOSE = "153000"
+WEEKDAYS = ["월", "화", "수", "목", "금", "토", "일"]
+EMOJI_MAP = {
+    "긍정": "☀️",
+    "중립": "🌤️",
+    "부정": "🌧️",
+}
+
+
+def get_weekly_stock_sentiments(db: Session, stock_id: int) -> WeeklySentimentResponse:
+    """어제 날짜(yesterday) 이하 기준 최근 7일치 주식 감정 날씨 데이터 조회."""
+    yesterday = datetime.now(KST).date() - timedelta(days=1)
+    rows = db.scalars(
+        select(SentimentAnalysis)
+        .where(
+            SentimentAnalysis.stock_id == stock_id,
+            SentimentAnalysis.date <= yesterday,
+        )
+        .order_by(SentimentAnalysis.date.desc())
+        .limit(7)
+    ).all()
+
+    # 과거 -> 최근 순서로 정렬
+    rows_sorted = list(reversed(rows))
+    items = [
+        DailySentimentItem(
+            date=row.date,
+            day=WEEKDAYS[row.date.weekday()],
+            sentiment=row.sentiment,
+            emoji=EMOJI_MAP.get(row.sentiment, "🌤️"),
+        )
+        for row in rows_sorted
+    ]
+
+    return WeeklySentimentResponse(stockId=stock_id, weeklySentiments=items)
+
 
 
 def persist_live_minute_candle(stock_code: str, message: dict[str, object]) -> None:

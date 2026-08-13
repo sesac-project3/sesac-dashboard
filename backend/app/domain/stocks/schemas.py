@@ -69,3 +69,16 @@ class MinuteCandleBackfillResponse(BaseModel):
     totalReceivedMinuteCount: int
     totalUpsertedMinuteCount: int
     results: list[MinuteCandleBackfillResult]
+
+
+class DailySentimentItem(BaseModel):
+    date: date
+    day: str
+    sentiment: str
+    emoji: str
+
+
+class WeeklySentimentResponse(BaseModel):
+    stockId: int
+    weeklySentiments: list[DailySentimentItem]
+
