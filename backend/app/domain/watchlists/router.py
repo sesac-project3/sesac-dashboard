@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
@@ -64,5 +65,14 @@ def toggle_watchlist(
         db.delete(existing)
         in_watchlist = False
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 같은 (user, stock) 조합에 대한 등록 요청이 여러 탭/기기에서 동시에 들어와
+        # UNIQUE 제약에 걸린 경우 — 이미 다른 요청이 등록을 완료했다는 뜻이라 에러가
+        # 아니라 "등록됨"으로 취급하면 된다. 프론트는 같은 종목 요청을 순서대로만
+        # 보내지만(레이스 방지), 다른 탭/기기의 요청까지는 그걸로 못 막는다.
+        db.rollback()
+        in_watchlist = True
+
     return ApiResponse.ok(WatchlistToggleResponse(inWatchlist=in_watchlist))

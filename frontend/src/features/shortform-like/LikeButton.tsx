@@ -39,11 +39,23 @@ export default function LikeButton({
   const [liked, setLiked] = useState(initialLiked);
   const [count, setCount] = useState(initialCount);
   const [popping, setPopping] = useState(false);
-  // 서버 응답을 기다리는 동안에도 리렌더를 더 유발하지 않도록 ref로 진행 중 요청을 추적.
-  const inFlight = useRef(false);
+  // "가장 최근에 보낸 요청" 번호 — 응답이 왔을 때 그 사이 더 최신 클릭이 있었으면
+  // (=이 번호가 바뀌어 있으면) 낡은 응답은 버린다. requestChain은 실제 네트워크 호출을
+  // 한 번에 하나씩만 순서대로 내보내기 위한 체인. 아래 onClick 주석 참고.
+  const latestRequestId = useRef(0);
+  const requestChain = useRef<Promise<unknown>>(Promise.resolve());
 
   // 낙관적 업데이트: 서버 응답 기다리지 않고 하트/카운트를 바로 바꾸고, 실제 토글은
   // 백그라운드에서 처리한다. 실패했을 때만 원래 값으로 되돌린다(관심종목 하트와 동일 패턴).
+  //
+  // 1초 안에 여러 번 클릭할 때 겪었던 두 가지 버그와 수정 이유:
+  // 1) "이미 요청 중이면 새 요청은 안 보냄" 방식이었을 때 — 맨 처음 요청의 응답이 나중에
+  //    도착하면서 그 사이 여러 번 더 눌러 만든 최신 화면을 덮어써서 다른 값으로 보였다.
+  // 2) 클릭마다 매번 서버로 보내되 응답만 "최신 것만 반영"하도록 고쳤더니, 이번엔 같은
+  //    좋아요에 대한 토글 요청 여러 개가 서버에 동시에 도착해 DB에서 경합해 요청 하나가
+  //    통째로 실패하는 문제가 실제로 있었다(네트워크 로그로 확인).
+  // 그래서 지금은 요청을 "체인"으로 순서대로 이어 보낸다 — 화면은 클릭마다 바로 바뀌지만,
+  // 실제 서버 호출은 이전 것이 끝난 뒤에만 나가서 DB 경합 자체가 생기지 않는다.
   const onClick = () => {
     if (!getAccessToken()) {
       router.push("/login");
@@ -59,20 +71,22 @@ export default function LikeButton({
     setLiked(nextLiked);
     setCount(previousCount + (nextLiked ? 1 : -1));
 
-    if (inFlight.current) return; // 같은 버튼에 이미 요청이 나가 있으면 낙관적 표시만 갱신
-    inFlight.current = true;
-    toggleShortformLike(shortformId)
-      .then((result) => {
+    const requestId = ++latestRequestId.current;
+    requestChain.current = requestChain.current.then(
+      () => toggleShortformLike(shortformId),
+      () => toggleShortformLike(shortformId), // 앞선 요청이 실패했어도 이 요청은 이어서 보낸다
+    ).then(
+      (result) => {
+        if (latestRequestId.current !== requestId) return;
         setLiked(result.liked);
         setCount(result.likeCount);
-      })
-      .catch(() => {
+      },
+      () => {
+        if (latestRequestId.current !== requestId) return;
         setLiked(previousLiked);
         setCount(previousCount);
-      })
-      .finally(() => {
-        inFlight.current = false;
-      });
+      },
+    );
   };
 
   // DESIGN_SPEC.md §26: right rail 아이콘 — 큰 아이콘 + 작은 label(카운트).

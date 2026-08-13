@@ -5,6 +5,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
@@ -151,5 +152,15 @@ def toggle_like(
         row.like_count = max(0, row.like_count - 1)
         liked = False
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 같은 좋아요에 대한 요청이 여러 탭/기기에서 동시에 들어와 UNIQUE 제약에 걸린
+        # 경우 — 이미 다른 요청이 좋아요를 완료했다는 뜻이라 에러가 아니라 "좋아요됨"으로
+        # 취급한다. 프론트는 같은 버튼의 요청을 순서대로만 보내지만(레이스 방지), 다른
+        # 탭/기기의 요청까지는 그걸로 못 막는다.
+        db.rollback()
+        row = db.get(ShortformModel, shortform_id)
+        liked = True
+
     return ApiResponse.ok(LikeToggleResponse(liked=liked, likeCount=row.like_count))
