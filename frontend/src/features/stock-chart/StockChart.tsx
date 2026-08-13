@@ -69,8 +69,8 @@ const createExtremaLabelsPlugin = (candles: Candle[]): Plugin<"line"> => ({
     const closePrices = chart.data.datasets[0]?.data as number[];
     if (!dataset.data.length || !closePrices.length) return;
 
-    const maxIndex = closePrices.indexOf(Math.max(...closePrices));
-    const minIndex = closePrices.indexOf(Math.min(...closePrices));
+    const maxIndex = closePrices.lastIndexOf(Math.max(...closePrices));
+    const minIndex = closePrices.lastIndexOf(Math.min(...closePrices));
     const context = chart.ctx;
 
     context.save();
@@ -80,8 +80,8 @@ const createExtremaLabelsPlugin = (candles: Candle[]): Plugin<"line"> => ({
     context.textBaseline = "middle";
 
     for (const { index, label, offset } of [
-      { index: maxIndex, label: `고가 ${formatPrice(candles[maxIndex]?.highPrice ?? 0)}`, offset: -14 },
-      { index: minIndex, label: `저가 ${formatPrice(candles[minIndex]?.lowPrice ?? 0)}`, offset: 14 },
+      { index: maxIndex, label: `고가 ${formatPrice(candles[maxIndex]?.highPrice ?? 0)}`, offset: -26 },
+      { index: minIndex, label: `저가 ${formatPrice(candles[minIndex]?.lowPrice ?? 0)}`, offset: 26 },
     ]) {
       const point = dataset.data[index];
       if (!point) continue;
@@ -157,6 +157,8 @@ export default function StockChart({
   const closePrices = candles.map((candle) => candle.closePrice);
   const maxClose = Math.max(...closePrices);
   const minClose = Math.min(...closePrices);
+  const maxIndex = closePrices.lastIndexOf(maxClose);
+  const minIndex = closePrices.lastIndexOf(minClose);
   const extremaLabelsPlugin = createExtremaLabelsPlugin(candles);
   const externalTooltip = ({
     chart,
@@ -215,7 +217,7 @@ export default function StockChart({
         borderColor: "#542be9",
         borderWidth: 2,
         pointRadius: (context: { dataIndex: number }) =>
-          closePrices[context.dataIndex] === maxClose || closePrices[context.dataIndex] === minClose ? 3 : 0,
+          context.dataIndex === maxIndex || context.dataIndex === minIndex ? 3 : 0,
         pointBackgroundColor: "#542be9",
         pointBorderColor: "#542be9",
         pointBorderWidth: 0,
@@ -234,7 +236,7 @@ export default function StockChart({
         options={{
           responsive: true,
           maintainAspectRatio: false,
-          layout: { padding: { top: 20, bottom: 20 } },
+          layout: { padding: { top: 32, bottom: 32 } },
           interaction: { mode: "index", intersect: false },
           plugins: {
             legend: { display: false },
