@@ -158,14 +158,9 @@ export default function ShortformCard({
         </p>
       </div>
 
-      {/* 상단: 종목/감성 배지 + AI INSIGHT 토글 버튼 (영상을 탭해도 같은 토글이 열림) */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between p-3">
-        <span className="rounded-full bg-black/40 px-2 py-1 text-xs">
-          {shortform.stockName} ·{" "}
-          <span className={shortform.sentiment === "POS" ? "text-market-up" : "text-market-down"}>
-            {shortform.sentiment}
-          </span>
-        </span>
+      {/* 상단: AI INSIGHT 토글 버튼 (영상을 탭해도 같은 토글이 열림). 종목/감성 배지는
+          하단에 종목명이 이미 나오고 있어서 중복이라 제거. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 flex items-center justify-end p-3">
         <div className="flex items-center gap-2">
           {/* 볼륨 조절 — AI INSIGHT 버튼 왼쪽에 배치. 슬라이더 값은 피드 전체가 공유하는
               store라 다음 영상으로 넘어가도 그대로 유지된다. */}
