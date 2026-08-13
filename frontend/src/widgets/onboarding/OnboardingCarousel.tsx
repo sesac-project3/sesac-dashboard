@@ -32,8 +32,8 @@ const SLIDES = [
     description: "긍정·부정 뉴스를 숏폼으로 빠르게, AI 인사이트까지 함께.",
     illustration: (
       <div className="relative mx-auto flex h-full w-[120px] flex-col justify-between rounded-2xl bg-heading p-3 text-white shadow-elevated">
-        <span className="self-end rounded-full bg-white/20 px-2 py-0.5 text-[10px]">
-          <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
+        <span className="self-end rounded-full bg-white/20 px-1.5 py-0.5 text-[8px]">
+          <Sparkles className="mr-0.5 inline h-2 w-2" aria-hidden="true" /> AI INSIGHT
         </span>
         <Play className="h-8 w-8 self-center fill-current" aria-hidden="true" />
         <span className="text-[11px] leading-snug">
