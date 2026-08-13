@@ -182,7 +182,11 @@ export default function ShortformCard({
 
       {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치 */}
       <div className="pointer-events-auto absolute right-3 bottom-[212px] flex flex-col items-center gap-5">
-        <LikeButton shortformId={shortform.id} initialCount={shortform.likeCount} />
+        <LikeButton
+          shortformId={shortform.id}
+          initialLiked={shortform.liked}
+          initialCount={shortform.likeCount}
+        />
       </div>
 
       {/* 하단: 종목명/자막(캡션) + CTA — 자막은 접근성 위해 항상 텍스트로 노출 (PRD §8) */}

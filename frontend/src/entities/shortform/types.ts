@@ -8,4 +8,5 @@ export interface Shortform {
   aiInsight: string | null;
   likeCount: number;
   viewCount: number;
+  liked: boolean;
 }

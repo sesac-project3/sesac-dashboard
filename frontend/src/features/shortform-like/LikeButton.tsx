@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toggleShortformLike } from "@/shared/api/shortforms";
 import { getAccessToken } from "@/shared/api/base";
@@ -44,6 +44,17 @@ export default function LikeButton({
   // 한 번에 하나씩만 순서대로 내보내기 위한 체인. 아래 onClick 주석 참고.
   const latestRequestId = useRef(0);
   const requestChain = useRef<Promise<unknown>>(Promise.resolve());
+  const hasInteracted = useRef(false);
+
+  // ShortformFeed는 /shortforms를 서버 컴포넌트가 캐시 걸어 먼저 렌더한 뒤(그 시점엔
+  // liked가 항상 false), 브라우저에서 로그인 토큰으로 내 좋아요 목록을 따로 가져와
+  // 뒤늦게 shortform.liked를 갱신한다 — 이 컴포넌트는 이미 initialLiked=false로 마운트가
+  // 끝난 뒤라 useState(initialLiked)의 초기값은 다시 안 쓰인다. 그래서 prop이 나중에
+  // 바뀌면 이 effect로 동기화해준다. 단, 그 사이 사용자가 이미 클릭했다면(hasInteracted)
+  // 그 클릭이 우선이니 덮어쓰지 않는다.
+  useEffect(() => {
+    if (!hasInteracted.current) setLiked(initialLiked);
+  }, [initialLiked]);
 
   // 낙관적 업데이트: 서버 응답 기다리지 않고 하트/카운트를 바로 바꾸고, 실제 토글은
   // 백그라운드에서 처리한다. 실패했을 때만 원래 값으로 되돌린다(관심종목 하트와 동일 패턴).
@@ -62,6 +73,7 @@ export default function LikeButton({
       return;
     }
 
+    hasInteracted.current = true;
     setPopping(true);
     setTimeout(() => setPopping(false), 200);
 
