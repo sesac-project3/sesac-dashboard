@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Sparkles } from "lucide-react";
 import type { Shortform } from "@/entities/shortform/types";
 import LikeButton from "@/features/shortform-like/LikeButton";
 import { getResumePosition, saveVideoPosition } from "@/widgets/shortform-feed/videoPositionStore";
@@ -152,7 +153,7 @@ export default function ShortformCard({
               showInsight ? "bg-primary text-white" : "bg-black/40 text-white"
             }`}
           >
-            ✨ AI INSIGHT
+            <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
           </button>
         )}
       </div>
@@ -167,7 +168,7 @@ export default function ShortformCard({
         onClick={toggleInsight}
       >
         <p className="mb-3 text-xs font-semibold tracking-wide text-white/60">
-          ✨ AI INSIGHT
+          <Sparkles className="mr-1 inline h-3 w-3" aria-hidden="true" /> AI INSIGHT
         </p>
         <ul className="space-y-3">
           {insightLines.map((line, i) => (

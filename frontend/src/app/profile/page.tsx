@@ -25,7 +25,7 @@ export default function ProfilePage() {
       <h1 className="my-4 text-[18px] font-semibold text-heading">내 정보</h1>
       <Card className="flex flex-col gap-1">
         <p className="text-[14px] font-medium text-heading">카카오 계정으로 로그인됨</p>
-        <p className="text-[13px] text-caption">세싹대시보드를 이용해주셔서 감사합니다.</p>
+        <p className="text-[13px] text-caption">서비스를 이용해주셔서 감사합니다.</p>
       </Card>
       <button
         onClick={logout}

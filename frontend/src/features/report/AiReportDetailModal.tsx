@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, Sparkles, TrendingUp, AlertTriangle, Newspaper, Scale, BarChart2 } from "lucide-react";
+import { X, Sparkles, TrendingUp, AlertTriangle, Newspaper, Scale, BarChart2, Lightbulb } from "lucide-react";
 import type { StockReport, PeerComparisonRow } from "@/entities/report/types";
 
 interface AiReportDetailModalProps {
@@ -441,7 +441,8 @@ export default function AiReportDetailModal({
 
             {report.valuationComment && (
               <p className="text-xs text-[#4E5968] bg-[#F9FAFB] p-3.5 rounded-xl border border-slate-100 leading-relaxed">
-                💡 {report.valuationComment}
+                <Lightbulb className="mr-1 inline h-3.5 w-3.5 text-[#FF9500]" aria-hidden="true" />
+                {report.valuationComment}
               </p>
             )}
           </div>

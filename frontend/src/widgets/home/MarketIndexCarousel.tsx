@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Triangle } from "lucide-react";
 import Card from "@/shared/ui/Card";
 import type { MarketIndexDetail } from "@/entities/stock/types";
 
@@ -41,7 +42,8 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
                   idx.isUp ? "text-market-up" : "text-market-down"
                 }`}
               >
-                {idx.isUp ? "▲" : "▼"} {Math.abs(idx.change).toLocaleString()} (
+                <Triangle className={`mr-1 inline h-3 w-3 ${idx.isUp ? "" : "rotate-180"}`} fill="currentColor" strokeWidth={0} aria-hidden="true" />
+                {Math.abs(idx.change).toLocaleString()} (
                 {idx.isUp ? "+" : ""}
                 {idx.changePercent.toFixed(2)}%)
               </p>

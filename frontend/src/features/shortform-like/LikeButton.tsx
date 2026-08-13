@@ -2,28 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Heart } from "lucide-react";
 import { toggleShortformLike } from "@/shared/api/shortforms";
 import { getAccessToken } from "@/shared/api/base";
 
 // 인스타그램 스타일: 평소엔 흰색 outline 하트, 좋아요 누르면 빨간 채움 하트 + 살짝 튀는(pop)
 // 스케일 애니메이션. DESIGN_SPEC.md 410행 "active favorite: red 계열" 규칙 적용.
 function HeartIcon({ filled, popping }: { filled: boolean; popping: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      className={`h-7 w-7 drop-shadow transition-transform duration-200 ease-out ${
-        popping ? "scale-125" : "scale-100"
-      } ${filled ? "text-red-500" : "text-white"}`}
-      fill={filled ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth={filled ? 0 : 1.8}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
-    </svg>
-  );
+  return <Heart
+    className={`h-7 w-7 drop-shadow transition-transform duration-200 ease-out ${
+      popping ? "scale-125" : "scale-100"
+    } ${filled ? "text-red-500" : "text-white"}`}
+    fill={filled ? "currentColor" : "none"}
+    strokeWidth={filled ? 0 : 1.8}
+    aria-hidden="true"
+  />;
 }
 
 export default function LikeButton({
