@@ -35,7 +35,22 @@ export default function WatchlistPage() {
     <PageContainer>
       <h1 className="my-4 text-[18px] font-semibold text-heading">관심종목</h1>
       {stocks === null ? (
-        <Card className="h-[60px] animate-pulse bg-surface">{null}</Card>
+        // 홈 랭킹 카드 스켈레톤과 동일한 패턴 (animate-pulse + bg-surface 도형)
+        <Card
+          className="flex animate-pulse flex-col divide-y divide-border-soft/60"
+          aria-label="관심종목을 불러오는 중"
+          aria-busy="true"
+        >
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0">
+              <div className="flex items-center gap-3">
+                <span className="h-9 w-9 shrink-0 rounded-full bg-surface" />
+                <span className="h-4 w-20 rounded-md bg-surface" />
+              </div>
+              <span className="h-4 w-16 rounded-md bg-surface" />
+            </div>
+          ))}
+        </Card>
       ) : stocks.length === 0 ? (
         <Card className="text-center text-[14px] text-caption">
           아직 담은 종목이 없습니다.
