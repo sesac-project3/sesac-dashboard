@@ -102,7 +102,11 @@ def list_shortforms(
     rows = db.execute(
         select(ShortformModel, Stock)
         .join(Stock, Stock.code == ShortformModel.ticker)
-        .order_by(ShortformModel.created_at.desc())
+        .order_by(
+            ShortformModel.ticker.asc(),
+            ShortformModel.sentiment.desc(),
+            ShortformModel.created_at.desc()
+        )
     ).all()
     # 비로그인이면 좋아요 여부를 표시할 사용자가 없으니 전부 False(기존과 동일 동작).
     liked_ids = get_liked_ids(db, user_id) if user_id is not None else set()
