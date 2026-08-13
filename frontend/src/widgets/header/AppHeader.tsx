@@ -27,7 +27,7 @@ export default function AppHeader() {
       <img
         src="/img/logo/zstock_logo.png"
         alt="Z-STOCK"
-        className="h-[42px] w-[225px] object-contain"
+        className="h-[50px] w-[270px] object-contain"
       />
     </header>
   );
