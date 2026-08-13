@@ -1,4 +1,6 @@
+import re
 from datetime import datetime, timezone
+import ftfy
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -30,6 +32,19 @@ def extract_publisher(url: str | None) -> str:
     if "goodkyung.com" in url:
         return "굿모닝경제"
     return "주요 언론사"
+
+
+def sanitize_headline(text_str: str) -> str:
+    if not text_str:
+        return text_str
+    line = text_str.split('\n')[0].strip()
+    fixed = ftfy.fix_text(line)
+    clean = re.sub(r'[^a-zA-Z0-9가-힣ㄱ-ㅎㅏ-ㅣ\u4e00-\u9fff\s\[\]\(\)\'\"“”‘’\-–—~!?.,:;%+/·…☆★▶▷▲▼※○●□■◇◆<>&]+', '', fixed)
+    # Truncate orphaned question mark fragments (e.g. ' ? ')
+    clean = re.sub(r'\s+[\?\!]\s+.*$', '', clean)
+    clean = re.sub(r'\s+오늘$', '', clean)
+    clean = re.sub(r'\s+', ' ', clean).strip()
+    return clean if clean else fixed
 
 
 
@@ -239,12 +254,11 @@ class ReportService:
                     if len(selected_rows) == 3:
                         break
 
-
         latest_news = []
         now = datetime.now(timezone.utc)
         for row in selected_rows:
             diff_hours = max(1, int((now - row.created_at.replace(tzinfo=timezone.utc)).total_seconds() // 3600)) if row.created_at else 2
-            raw_headline = str(row.headline or "").strip()
+            raw_headline = sanitize_headline(str(row.headline or "").strip())
             clean_title = raw_headline.split("\n")[0][:75] + ("..." if len(raw_headline) > 75 else "")
             pub_name = extract_publisher(row.url)
             sent_label = SENTIMENT_MAP.get(str(row.sentiment).lower(), "중립")

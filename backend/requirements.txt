@@ -14,3 +14,6 @@ python-multipart==0.0.20
 
 # ISSUE-E3: S3 사전 저장 배경 영상 조회
 boto3==1.43.69
+
+# 한글 깨짐 Mojibake 복원 정제
+ftfy==6.3.1

@@ -167,7 +167,11 @@ export default function AiReportDetailModal({
                   return (
                     <div key={fin.fiscalYear} className="flex flex-col items-center gap-2">
                       <span className={`text-[10px] font-bold ${isLatest ? "text-[#3182F6]" : "text-[#8B95A1]"}`}>
-                        {(fin.revenue / 100000000).toFixed(1)}
+                        {fin.revenue > 1000000000
+                          ? (fin.revenue / 10000000000).toFixed(1)
+                          : fin.revenue > 1000
+                          ? (fin.revenue / 1000).toFixed(1)
+                          : fin.revenue.toFixed(1)}
                       </span>
                       <div className="h-28 w-full bg-[#F2F4F6] rounded-xl flex items-end p-1">
                         <div
@@ -405,17 +409,33 @@ export default function AiReportDetailModal({
               </div>
             </div>
 
-            <div className="space-y-2 pt-1">
-              <div className="flex justify-between text-xs text-[#6B7684]">
-                <span>52주 최저: {report.week52Low?.toLocaleString()}원</span>
-                <span className="font-bold text-[#3182F6]">현재가: {report.currentPrice?.toLocaleString()}원</span>
-                <span>52주 최고: {report.week52High?.toLocaleString()}원</span>
-              </div>
-              <div className="relative h-3 w-full rounded-full bg-[#F2F4F6] overflow-hidden">
+            <div className="space-y-4 pt-1">
+              {/* 상단 현재가 뱃지 & 게이지 바 통합 영역 */}
+              <div className="relative w-full pt-6 pb-2">
+                {/* 현재가 파스텔 뱃지 */}
                 <div
-                  className="h-full bg-gradient-to-r from-[#3182F6] to-indigo-600 transition-all duration-500 rounded-full"
-                  style={{ width: `${priceBandRatio}%` }}
-                />
+                  className="absolute top-0 -translate-x-1/2 transition-all duration-500 whitespace-nowrap"
+                  style={{ left: `${priceBandRatio}%` }}
+                >
+                  <span className="px-2.5 py-0.5 text-[11px] font-bold text-[#3182F6] bg-[#E8F3FF] rounded-full shadow-xs">
+                    현재가 {report.currentPrice?.toLocaleString()}원
+                  </span>
+                </div>
+
+                {/* 그라데이션 게이지 트랙 바 */}
+                <div className="relative h-2 w-full rounded-full bg-gradient-to-r from-[#F04452] via-[#FF9500] to-[#10B981]">
+                  {/* 현재가 위치 흰색/파란 테두리 원형 도트 마크 */}
+                  <div
+                    className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-[3px] border-[#3182F6] shadow-md transition-all duration-500 z-10"
+                    style={{ left: `${priceBandRatio}%` }}
+                  />
+                </div>
+              </div>
+
+              {/* 하단 52주 최저 / 최고 범위 */}
+              <div className="flex justify-between text-xs text-[#6B7684] font-medium">
+                <span>52주 최저: {report.week52Low?.toLocaleString()}원</span>
+                <span>52주 최고: {report.week52High?.toLocaleString()}원</span>
               </div>
             </div>
 
