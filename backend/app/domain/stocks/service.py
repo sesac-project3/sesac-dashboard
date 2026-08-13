@@ -204,7 +204,7 @@ def backfill_minute_candles(db: Session) -> MinuteCandleBackfillResponse:
 
 def _fetch_latest_minute_range(stock_code: str, now: datetime) -> list[dict[str, str]]:
     input_time = min(now.strftime("%H%M%S"), MARKET_CLOSE)
-    for days_ago in range(8):
+    for days_ago in range(4):
         target_date = now.date() - timedelta(days=days_ago)
         rows = _fetch_minute_range(
             stock_code,

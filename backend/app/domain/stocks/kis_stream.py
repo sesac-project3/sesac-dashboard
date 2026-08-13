@@ -11,7 +11,6 @@ from sqlalchemy import select
 from app.core.database import SessionLocal
 from app.core.kis import kis_token_client
 from app.domain.stocks.models import Stock, StockDailyCandle
-from app.domain.stocks.service import persist_live_minute_candle
 from app.domain.stocks.candle_store import publish_candle, publish_quote, store_minute_candle
 from app.domain.stocks.market_subscription import MarketWebSocketManager
 
@@ -167,16 +166,10 @@ class KisMarketStream:
             await self._send_subscription(connection, stock_code, "2")
             if not has_subscriptions:
                 await connection.close()
-        candle = self._candles.pop(stock_code, None)
+        self._candles.pop(stock_code, None)
         for interval in ("DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"):
             self._aggregate_candles.pop((stock_code, interval), None)
         self._initialized_codes.discard(stock_code)
-        if candle is not None:
-            await asyncio.to_thread(
-                persist_live_minute_candle,
-                stock_code,
-                candle.as_message(stock_code),
-            )
 
     async def _run(self) -> None:
         try:
@@ -204,28 +197,12 @@ class KisMarketStream:
         except Exception:
             logger.exception("KIS market WebSocket stopped")
         finally:
-            await self._persist_active_minute_candles()
             self._connection = None
             async with self._lock:
                 should_retry = bool(self._subscribed_codes)
             if should_retry:
                 await asyncio.sleep(2)
                 self._task = asyncio.create_task(self._run())
-
-    async def _persist_active_minute_candles(self) -> None:
-        candles = list(self._candles.items())
-        for stock_code, candle in candles:
-            try:
-                await asyncio.to_thread(
-                    persist_live_minute_candle,
-                    stock_code,
-                    candle.as_message(stock_code),
-                )
-            except Exception:
-                logger.exception(
-                    "Failed to persist active minute candle: stock_code=%s",
-                    stock_code,
-                )
 
     async def _send_subscription(self, connection, stock_code: str, tr_type: str) -> None:
         await connection.send(json.dumps({
@@ -277,12 +254,6 @@ class KisMarketStream:
         })
         traded_at = _minute_bucket(datetime.now(KST))
         candle = self._candles.get(stock_code)
-        if candle is not None and candle.traded_at != traded_at:
-            await asyncio.to_thread(
-                persist_live_minute_candle,
-                stock_code,
-                candle.as_message(stock_code),
-            )
         if candle is None or candle.traded_at != traded_at:
             candle = LiveMinuteCandle(traded_at, price, price, price, price, trade_volume)
             self._candles[stock_code] = candle
