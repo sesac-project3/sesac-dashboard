@@ -107,13 +107,17 @@ export default function OnboardingCarousel() {
         ))}
       </div>
 
-      {/* DESIGN_SPEC.md §24.3: inactive는 연한 회색, active는 mint green 알약형 */}
+      {/* DESIGN_SPEC.md §24.3 Carousel Indicator: inactive는 연한 회색, active는 알약형.
+          §24.3의 "mint green"은 레퍼런스 화면(포트폴리오 카드) 기준이고, 779행에서
+          "aggregate positive status가 필요한 경우에만 mint 사용"이라 명시 — 온보딩은
+          포트폴리오 집계와 무관하므로 이 프로젝트의 실제 active 색(indigo, §0.2 브랜드
+          액센트)을 쓴다. */}
       <div className="flex items-center justify-center gap-1.5 py-4">
         {SLIDES.map((_, i) => (
           <span
             key={i}
             className={`h-2 rounded-full transition-all ${
-              i === active ? "w-6 bg-positive" : "w-2 bg-border"
+              i === active ? "w-6 bg-primary" : "w-2 bg-border"
             }`}
           />
         ))}

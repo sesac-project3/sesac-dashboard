@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLoggedIn } from "@/shared/hooks/useLoggedIn";
 import { HomeIcon, ProfileIcon, ShortformIcon, WatchlistIcon } from "@/widgets/bottom-tab/icons";
 
 // DESIGN_SPEC.md §27: 레퍼런스 제품(모임투자/포트폴리오 등 Out of Scope 기능)의 탭 이름을
@@ -16,6 +17,11 @@ const TABS = [
 
 export default function BottomTabBar() {
   const pathname = usePathname();
+  const loggedIn = useLoggedIn();
+
+  // 홈(/)이 로그아웃 상태로 온보딩 캐러셀을 보여줄 땐(HomeGate) 하단 탭도 같이 숨긴다 —
+  // 아직 로그인 안 한 사용자에게 다른 탭으로 이동 가능한 것처럼 보이면 안 됨.
+  if (pathname === "/" && loggedIn !== true) return null;
 
   return (
     <nav

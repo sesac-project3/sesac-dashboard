@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getAccessToken } from "@/shared/api/base";
+import { useLoggedIn } from "@/shared/hooks/useLoggedIn";
 import { logout } from "@/shared/api/auth";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
@@ -12,15 +12,11 @@ import Card from "@/shared/ui/Card";
 // 등)과 같은 패턴: 로그인 안 했으면 홈(온보딩)으로 보낸다.
 export default function ProfilePage() {
   const router = useRouter();
-  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
+  const loggedIn = useLoggedIn();
 
   useEffect(() => {
-    if (!getAccessToken()) {
-      router.replace("/login");
-      return;
-    }
-    setLoggedIn(true);
-  }, [router]);
+    if (loggedIn === false) router.replace("/login");
+  }, [loggedIn, router]);
 
   if (!loggedIn) return null;
 
