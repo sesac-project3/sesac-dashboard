@@ -155,7 +155,7 @@ export default function ShortformCard({
           {/* 볼륨 조절 — AI INSIGHT 버튼 왼쪽에 배치. 슬라이더 값은 피드 전체가 공유하는
               store라 다음 영상으로 넘어가도 그대로 유지된다. */}
           <div
-            className="pointer-events-auto flex items-center gap-1.5 rounded-full bg-black/40 px-2 py-1"
+            className="pointer-events-auto flex items-center gap-1.5 px-2 py-1"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -177,7 +177,7 @@ export default function ShortformCard({
               step={0.05}
               value={isMuted ? 0 : volume}
               onChange={(e) => setVolume(Number(e.target.value))}
-              className="h-1 w-14"
+              className="volume-slider h-1 w-14"
               style={{ accentColor: "white" }}
               aria-label="볼륨 조절"
             />
@@ -224,7 +224,7 @@ export default function ShortformCard({
 
       {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치.
           음소거/볼륨 조절은 상단 바(AI INSIGHT 왼쪽)로 옮겨서 여긴 좋아요만 남는다. */}
-      <div className="pointer-events-auto absolute right-3 bottom-[212px] flex flex-col items-center gap-5">
+      <div className="pointer-events-auto absolute right-3 bottom-[302px] flex flex-col items-center gap-5">
         <LikeButton
           shortformId={shortform.id}
           initialLiked={shortform.liked}

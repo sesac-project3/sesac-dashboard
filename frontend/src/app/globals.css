@@ -91,3 +91,22 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none; /* Chrome/Safari */
 }
+
+/* 숏폼 카드 볼륨 슬라이더 — 조절점(thumb) 기본 크기가 커서 브라우저 기본값보다
+   작게 줄임. accent-color만으로는 thumb 크기를 못 줄여서 직접 정의. */
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: white;
+}
