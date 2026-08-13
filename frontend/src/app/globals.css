@@ -81,16 +81,6 @@ body {
   animation: drawer-up 400ms ease-out both;
 }
 
-/* 홈 최초 로딩 화면 로고 — 위아래로 살짝 떠다니는 효과 */
-@keyframes float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-10px); }
-}
-
-.animate-float {
-  animation: float 2.4s ease-in-out infinite;
-}
-
 /* 스크롤은 그대로 되지만 스크롤바만 안 보이게 (캐러셀/스와이프 피드처럼 스와이프로만
    넘기는 걸 전제로 한 스크롤 영역에 사용). Tailwind엔 기본 유틸리티가 없어서 직접 정의. */
 .no-scrollbar {
