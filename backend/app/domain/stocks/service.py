@@ -31,7 +31,7 @@ EMOJI_MAP = {
 
 
 def get_weekly_stock_sentiments(db: Session, identifier: str) -> WeeklySentimentResponse:
-    """어제 날짜(yesterday) 이하 기준 최근 7일치 주식 감정 날씨 데이터 조회 (stock_id 또는 stock_code)."""
+    """어제 날짜(yesterday) 이하 기준 전체 주식 감정 날씨 데이터 조회 (오래된 순 -> 어제 순)."""
     stock_id: int = 1
     if identifier.isdigit() and len(identifier) < 6:
         stock_id = int(identifier)
@@ -47,12 +47,9 @@ def get_weekly_stock_sentiments(db: Session, identifier: str) -> WeeklySentiment
             SentimentAnalysis.stock_id == stock_id,
             SentimentAnalysis.date <= yesterday,
         )
-        .order_by(SentimentAnalysis.date.desc())
-        .limit(7)
+        .order_by(SentimentAnalysis.date.asc())
     ).all()
 
-    # 과거 -> 최근 순서로 정렬
-    rows_sorted = list(reversed(rows))
     items = [
         DailySentimentItem(
             date=row.date,
@@ -60,10 +57,11 @@ def get_weekly_stock_sentiments(db: Session, identifier: str) -> WeeklySentiment
             sentiment=row.sentiment,
             emoji=EMOJI_MAP.get(row.sentiment, "🌤️"),
         )
-        for row in rows_sorted
+        for row in rows
     ]
 
     return WeeklySentimentResponse(stockId=stock_id, weeklySentiments=items)
+
 
 
 
