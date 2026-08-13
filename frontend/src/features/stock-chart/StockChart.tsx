@@ -172,7 +172,7 @@ export default function StockChart({
       element = document.createElement("div");
       element.className = "chart-tooltip";
       element.style.cssText =
-        "position:absolute;transform:translate(12px,-50%);padding:12px;background:#fff;border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 12px rgba(17,24,39,.08);pointer-events:none;white-space:nowrap;transition:opacity .1s";
+        "position:absolute;transform:translate(12px,-50%);padding:12px;background:rgba(255,255,255,.75);border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 12px rgba(17,24,39,.08);pointer-events:none;white-space:nowrap;transition:opacity .1s";
       chart.canvas.parentNode?.appendChild(element);
     }
 
@@ -204,9 +204,20 @@ export default function StockChart({
       element.appendChild(row);
     }
 
+    const container = chart.canvas.parentElement;
+    if (!container) return;
+
     element.style.opacity = "1";
-    element.style.left = `${tooltip.caretX}px`;
-    element.style.top = `${tooltip.caretY}px`;
+    const left = Math.min(
+      Math.max(tooltip.caretX, -12),
+      container.clientWidth - element.offsetWidth - 12,
+    );
+    const top = Math.min(
+      Math.max(tooltip.caretY, element.offsetHeight / 2),
+      container.clientHeight - element.offsetHeight / 2,
+    );
+    element.style.left = `${left}px`;
+    element.style.top = `${top}px`;
   };
   const data = {
     labels: candles.map((candle) => candle.timestamp),
