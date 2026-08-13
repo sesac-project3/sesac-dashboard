@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, WebSocket
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.common.exceptions import BusinessException, ErrorCode
 from app.common.response import ApiResponse
 from app.core.database import get_db
 from app.domain.stocks.chart_service import get_candles
@@ -33,6 +34,14 @@ def list_stocks(db: Session = Depends(get_db)):
 @router.websocket("/ws")
 async def market_websocket(websocket: WebSocket):
     await handle_market_websocket(websocket)
+
+
+@router.get("/{stock_code}", response_model=ApiResponse[Stock])
+def stock(stock_code: str, db: Session = Depends(get_db)):
+    row = db.scalar(select(StockModel).where(StockModel.code == stock_code))
+    if row is None:
+        raise BusinessException(ErrorCode.ENTITY_NOT_FOUND)
+    return ApiResponse.ok(Stock.model_validate(row, from_attributes=True))
 
 
 @router.get("/{stock_code}/candles", response_model=ApiResponse[CandleResponse])

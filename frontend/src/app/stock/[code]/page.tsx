@@ -20,10 +20,10 @@ async function fetchReport(code: string): Promise<StockReport | null> {
 
 async function fetchStock(code: string): Promise<Stock | null> {
   try {
-    const res = await fetch(`${API_BASE_URL}/stocks`, { cache: "no-store" });
+    const res = await fetch(`${API_BASE_URL}/stocks/${code}`, { cache: "no-store" });
     if (!res.ok) return null;
     const body = await res.json();
-    return (body.data as Stock[]).find((stock) => stock.code === code) ?? null;
+    return body.data;
   } catch {
     return null;
   }
