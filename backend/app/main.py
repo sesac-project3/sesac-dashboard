@@ -12,7 +12,7 @@ from app.domain.news.router import router as news_router
 from app.domain.reports.router import router as reports_router
 from app.domain.shortforms.router import router as shortforms_router
 from app.domain.stocks.router import router as stocks_router
-from app.domain.stocks.websocket import restore_kis_subscriptions, subscribe_candle_events
+from app.domain.stocks.market_subscription import restore_kis_subscriptions, subscribe_candle_events
 from app.domain.stt.router import router as stt_router
 from app.domain.telegram.router import router as telegram_router
 

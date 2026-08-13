@@ -12,7 +12,8 @@ from app.core.database import SessionLocal
 from app.core.kis import kis_token_client
 from app.domain.stocks.models import Stock, StockDailyCandle
 from app.domain.stocks.service import persist_live_minute_candle
-from app.domain.stocks.websocket import MarketWebSocketManager
+from app.domain.stocks.candle_store import publish_candle, store_minute_candle
+from app.domain.stocks.market_subscription import MarketWebSocketManager
 
 logger = logging.getLogger(__name__)
 
@@ -258,7 +259,7 @@ class KisMarketStream:
         else:
             candle.update(price, volume)
         minute_message = candle.as_message(stock_code)
-        await self._manager.store_minute_candle(stock_code, minute_message)
+        await store_minute_candle(stock_code, minute_message)
         for interval in ("DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"):
             aggregate = self._aggregate_candles.get((stock_code, interval))
             bucket = _aggregate_bucket(traded_at, interval)
@@ -269,10 +270,7 @@ class KisMarketStream:
                 self._aggregate_candles[(stock_code, interval)] = aggregate
             else:
                 aggregate.update(price, volume)
-            await self._manager.publish_candle(
-                stock_code,
-                aggregate.as_message(stock_code),
-            )
+            await publish_candle(stock_code, aggregate.as_message(stock_code))
 
     async def _initialize_candles(self, stock_code: str) -> None:
         try:
@@ -284,7 +282,7 @@ class KisMarketStream:
 
         for interval, candle in seeds.items():
             self._aggregate_candles[(stock_code, interval)] = candle
-            await self._manager.publish_candle(stock_code, candle.as_message(stock_code))
+            await publish_candle(stock_code, candle.as_message(stock_code))
 
 
 def _to_int(value: str) -> int:
