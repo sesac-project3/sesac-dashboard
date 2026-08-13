@@ -84,6 +84,17 @@ export default function OnboardingCarousel() {
     return () => observers.forEach((o) => o?.disconnect());
   }, []);
 
+  // 2.5초마다 다음 슬라이드로 자동 스크롤, 마지막에서는 첫 슬라이드로 순환. active가 바뀔 때마다
+  // (자동이든 사용자가 직접 스와이프했든) 타이머를 새로 잡아서 매번 "그 슬라이드에 머문 지
+  // 2.5초 후" 넘어가게 한다 — 사용자가 스와이프한 직후 곧바로 또 넘어가 버리는 걸 방지.
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const next = (active + 1) % SLIDES.length;
+      slideRefs.current[next]?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [active]);
+
   return (
     <div className="flex flex-1 flex-col">
       <div className="no-scrollbar flex flex-1 snap-x snap-mandatory overflow-x-auto">
