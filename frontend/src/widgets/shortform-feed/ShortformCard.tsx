@@ -224,7 +224,7 @@ export default function ShortformCard({
 
       {/* DESIGN_SPEC.md §26: interaction icon은 right rail로 세로 배치.
           음소거/볼륨 조절은 상단 바(AI INSIGHT 왼쪽)로 옮겨서 여긴 좋아요만 남는다. */}
-      <div className="pointer-events-auto absolute right-3 bottom-[302px] flex flex-col items-center gap-5">
+      <div className="pointer-events-auto absolute right-3 bottom-[402px] flex flex-col items-center gap-5">
         <LikeButton
           shortformId={shortform.id}
           initialLiked={shortform.liked}
