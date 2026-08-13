@@ -129,8 +129,10 @@ export default function StockRankingSection({
         })}
       </div>
 
-      {/* 종목 랭킹 리스트 */}
-      <div className="flex flex-col divide-y divide-border-soft/60">
+      {/* 종목 랭킹 리스트 — key={activeTab}으로 탭 전환 시 통째로 리마운트한다. 두 탭에
+          겹치는 종목이 있으면 React가 같은 code 키를 재사용해 DOM을 재정렬하는데, 그 과정에서
+          divide-y 구분선이 순간적으로 겹쳐 두꺼워 보이는 문제가 있었다. */}
+      <div key={activeTab} className="flex flex-col divide-y divide-border-soft/60">
         {currentList.map((stock) => {
           const isFav = favorites[stock.code];
           return (
