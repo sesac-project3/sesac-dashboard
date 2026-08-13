@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import PageContainer from "@/shared/ui/PageContainer";
-import HomeLoadingScreen from "@/widgets/home/HomeLoadingScreen";
+// import HomeLoadingScreen from "@/widgets/home/HomeLoadingScreen"; // ponytail: 로딩화면 로직과 같이 임시 비활성화
 import MarketIndexCarousel from "@/widgets/home/MarketIndexCarousel";
 import AiMarketIssueCard from "@/widgets/home/AiMarketIssueCard";
 import StockRankingSection from "@/widgets/home/StockRankingSection";
@@ -23,10 +23,11 @@ export default function MarketDashboard() {
   const [data, setData] = useState<HomeDashboard | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
-  // 최초 로딩 화면: 데이터/에러가 도착하면 진행률 100%를 0.3초 보여준 뒤 실제 화면으로 전환.
-  // doneRef로 "최초 1회"만 걸리게 해서, 5초 주기 자동 갱신 때는 이 화면이 다시 뜨지 않는다.
-  const [showLoadingScreen, setShowLoadingScreen] = useState(true);
-  const initialLoadHandledRef = useRef(false);
+  // ponytail: 로딩화면 로직 임시 주석처리 (요청으로 비활성화, 필요해지면 복구)
+  // // 최초 로딩 화면: 데이터/에러가 도착하면 진행률 100%를 0.3초 보여준 뒤 실제 화면으로 전환.
+  // // doneRef로 "최초 1회"만 걸리게 해서, 5초 주기 자동 갱신 때는 이 화면이 다시 뜨지 않는다.
+  // const [showLoadingScreen, setShowLoadingScreen] = useState(true);
+  // const initialLoadHandledRef = useRef(false);
 
   const load = useCallback(async () => {
     setRefreshing(true);
@@ -53,16 +54,19 @@ export default function MarketDashboard() {
     return () => clearInterval(interval);
   }, [load]);
 
-  useEffect(() => {
-    if ((data || error) && !initialLoadHandledRef.current) {
-      initialLoadHandledRef.current = true;
-      const timer = setTimeout(() => setShowLoadingScreen(false), 300);
-      return () => clearTimeout(timer);
-    }
-  }, [data, error]);
+  // useEffect(() => {
+  //   if ((data || error) && !initialLoadHandledRef.current) {
+  //     initialLoadHandledRef.current = true;
+  //     const timer = setTimeout(() => setShowLoadingScreen(false), 300);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [data, error]);
 
-  if (showLoadingScreen) {
-    return <HomeLoadingScreen percent={data || error ? 100 : 0} />;
+  // if (showLoadingScreen) {
+  //   return <HomeLoadingScreen percent={data || error ? 100 : 0} />;
+  // }
+  if (!data && !error) {
+    return null;
   }
 
   if (!data) {
