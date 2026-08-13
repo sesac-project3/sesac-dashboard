@@ -13,7 +13,7 @@ from app.domain.stocks.candle_store import (
 )
 
 MARKET_SUBSCRIBERS_PREFIX = "market:subscribers:"
-MAX_CONNECTIONS_PER_USER = 2
+MAX_CONNECTIONS_PER_USER = 5
 
 
 class MarketWebSocketManager:
