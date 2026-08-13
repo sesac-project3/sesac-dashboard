@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import Card from "@/shared/ui/Card";
 import PageContainer from "@/shared/ui/PageContainer";
 // import HomeLoadingScreen from "@/widgets/home/HomeLoadingScreen"; // ponytail: 로딩화면 로직과 같이 임시 비활성화
 import MarketIndexCarousel from "@/widgets/home/MarketIndexCarousel";
@@ -66,7 +67,62 @@ export default function MarketDashboard() {
   //   return <HomeLoadingScreen percent={data || error ? 100 : 0} />;
   // }
   if (!data && !error) {
-    return null;
+    // StockQuoteCard(종목 상세 페이지)의 시세 로딩 스켈레톤과 같은 패턴
+    // (animate-pulse + bg-surface 도형)을 홈 카드들 내부 요소에도 그대로 적용.
+    return (
+      <PageContainer>
+        <div className="flex flex-col gap-4 py-4 pb-12" aria-label="시세 데이터를 불러오는 중" aria-busy="true">
+          {/* 지수 카드 스켈레톤 */}
+          <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
+            {[0, 1].map((i) => (
+              <Card key={i} className="flex animate-pulse flex-col gap-3 border-border-soft">
+                <div className="flex flex-col gap-2">
+                  <span className="h-3 w-16 rounded-md bg-surface" />
+                  <span className="h-7 w-24 rounded-md bg-surface" />
+                  <span className="h-3.5 w-20 rounded-md bg-surface" />
+                </div>
+                <div className="flex items-center justify-between border-t border-border-soft/60 pt-2.5">
+                  {[0, 1, 2].map((j) => (
+                    <span key={j} className="h-6 w-10 rounded-md bg-surface" />
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
+
+          {/* AI 이슈 카드 스켈레톤 */}
+          <Card className="flex animate-pulse flex-col gap-3">
+            <span className="h-5 w-32 rounded-md bg-surface" />
+            <div className="flex flex-col gap-2">
+              <span className="h-3.5 w-full rounded-md bg-surface" />
+              <span className="h-3.5 w-full rounded-md bg-surface" />
+              <span className="h-3.5 w-2/3 rounded-md bg-surface" />
+            </div>
+          </Card>
+
+          {/* 랭킹 카드 스켈레톤 */}
+          <Card className="flex animate-pulse flex-col gap-4">
+            <span className="h-5 w-28 rounded-md bg-surface" />
+            <div className="flex gap-2">
+              {[0, 1, 2, 3].map((i) => (
+                <span key={i} className="h-7 w-16 shrink-0 rounded-full bg-surface" />
+              ))}
+            </div>
+            <div className="flex flex-col divide-y divide-border-soft/60">
+              {[0, 1, 2, 3, 4].map((i) => (
+                <div key={i} className="flex items-center justify-between py-3.5">
+                  <div className="flex items-center gap-3">
+                    <span className="h-9 w-9 shrink-0 rounded-full bg-surface" />
+                    <span className="h-4 w-20 rounded-md bg-surface" />
+                  </div>
+                  <span className="h-4 w-16 rounded-md bg-surface" />
+                </div>
+              ))}
+            </div>
+          </Card>
+        </div>
+      </PageContainer>
+    );
   }
 
   if (!data) {
