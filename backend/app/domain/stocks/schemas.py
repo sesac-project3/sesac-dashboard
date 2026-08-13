@@ -42,6 +42,7 @@ class StockRankingItem(BaseModel):
     code: str
     name: str
     price: float
+    change: float
     changePercent: float
     isUp: bool
     volume: int

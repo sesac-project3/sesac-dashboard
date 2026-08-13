@@ -143,8 +143,9 @@ export default function StockRankingSection({
                       stock.isUp ? "text-market-up" : "text-market-down"
                     }`}
                   >
-                    {stock.isUp ? "+" : ""}
-                    {stock.changePercent.toFixed(2)}%
+                    {stock.isUp ? "+" : "-"}
+                    {Math.abs(stock.change).toLocaleString()} ({stock.isUp ? "+" : ""}
+                    {stock.changePercent.toFixed(2)}%)
                   </p>
                 </div>
 

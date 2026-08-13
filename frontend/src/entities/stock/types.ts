@@ -31,6 +31,7 @@ export interface StockRankingItem {
   code: string;
   name: string;
   price: number;
+  change: number;
   changePercent: number;
   isUp: boolean;
   volume: number;

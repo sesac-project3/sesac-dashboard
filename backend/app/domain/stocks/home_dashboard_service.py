@@ -78,6 +78,7 @@ def _fetch_stock_ranking_items(db: Session) -> list[StockRankingItem]:
                 code=s.code,
                 name=s.name,
                 price=_to_float(data.get("stck_prpr")),
+                change=_to_float(data.get("prdy_vrss")),
                 changePercent=change_percent,
                 isUp=change_percent >= 0,
                 volume=int(_to_float(data.get("acml_vol"))),
