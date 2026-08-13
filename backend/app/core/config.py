@@ -16,6 +16,12 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://postgres:postgres@localhost:5432/sesac"
     redis_url: str = "redis://localhost:6379/0"
 
+    # --- 환경 구분 ---
+    # 로컬 docker-compose(각자 컨테이너, Redis도 개발자별)로 띄우면 기본값(development) 그대로.
+    # 배포 환경에서는 반드시 APP_ENV=production으로 설정 — KIS 인증값을 .env가 아니라
+    # Redis에서 관리하게 갈라진다 (app/core/kis.py 참고).
+    app_env: str = "development"
+
     # --- JWT (ISSUE-001) ---
     # ponytail: 필드명이 실제 .env의 ACCESS_TOKEN_EXPIRE_MINUTES/REFRESH_TOKEN_EXPIRE_DAYS와
     # 안 맞으면(예전엔 jwt_access_expire_minutes였음) pydantic-settings가 그 값을 조용히
@@ -37,6 +43,14 @@ class Settings(BaseSettings):
     kis_user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
     kis_app_key: str = ""
     kis_app_secret: str = ""
+    # 개발 환경 전용 — 서버가 새로 발급하면 로그에 아래 형식으로 출력된다. 그대로 .env에
+    # 복사해두면 다음 서버 재시작부터 재발급 없이 재사용된다(dev는 Redis를 인증 공유
+    # 용도로 안 쓰기 때문). 배포 환경(APP_ENV=production)에서는 이 값 대신 Redis
+    # (kis:access_token 등)를 쓰므로 여기 채워둬도 무시된다.
+    kis_access_token: str = ""
+    kis_access_token_expires_at: str = ""
+    kis_ws_approval_key: str = ""
+    kis_ws_approval_key_expires_at: str = ""
 
     # --- F-03-2 DART 재무데이터 ---
     dart_api_key: str = ""
@@ -65,6 +79,10 @@ class Settings(BaseSettings):
     whisper_compute_type: str = "int8"
     whisper_language: str | None = "ko"
     max_upload_size_mb: int = 200
+
+    @property
+    def is_production(self) -> bool:
+        return self.app_env.strip().lower() == "production"
 
 
 settings = Settings()

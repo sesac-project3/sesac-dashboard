@@ -14,12 +14,26 @@ from app.core.kis_endpoints import (
     MARKET_INVESTOR_TREND_PATH,
     MINUTE_CANDLE_PATH,
 )
+from app.core.redis import redis_client
 
 logger = logging.getLogger(__name__)
 
 
 class KisTokenClient:
-    """KIS REST/WebSocket 인증키 발급과 메모리 캐시를 담당한다."""
+    """KIS REST access_token / WebSocket approval_key 발급과 캐시를 담당한다.
+
+    두 값은 발급/만료 정책이 달라(access_token은 KIS 응답이 실제 만료시각을 알려주고,
+    approval_key는 KIS 문서상 24시간 고정) 완전히 독립적으로 캐싱·재발급한다.
+
+    프로세스 메모리 캐시가 1차 캐시고, 그 뒤에 환경별 2차 저장소를 하나 더 둔다:
+      - 개발 환경(APP_ENV=development, 기본값): 로컬 Redis는 개발자별 docker 컨테이너라
+        인증값 공유 용도로 안 쓴다. 대신 .env(KIS_ACCESS_TOKEN 등)를 읽기 전용으로 참고하고,
+        새로 발급하면 로그로 값을 출력해 개발자가 직접 .env에 복사해 넣게 한다.
+      - 배포 환경(APP_ENV=production): Redis(kis:access_token 등)에 값+만료시각을 저장하고
+        읽어써서, 여러 워커/재배포 사이에서 프로세스가 새로 떠도 재발급하지 않는다.
+        동시에 여러 워커가 캐시 미스를 만나 동시에 재발급을 시도하지 않도록 Redis lock으로
+        발급 구간을 감싼다.
+    """
 
     _TOKEN_PATH = "/oauth2/tokenP"
     _APPROVAL_PATH = "/oauth2/Approval"
@@ -30,6 +44,16 @@ class KisTokenClient:
     # 레이트리밋 창이 계속 늘어나는(먼저 실패한 요청이 남은 대기시간을 계속 갱신하는)
     # 문제가 있었다.
     _TOKEN_FAILURE_COOLDOWN = timedelta(seconds=55)
+
+    # WebSocket 접속키는 KIS 발급 응답에 만료시각이 안 실려 온다 — 문서상 정책인 24시간에서
+    # 1시간 여유를 두고 만료 직전 재발급을 피한다(access_token과 동일한 여유 두는 방식).
+    _WS_APPROVAL_KEY_TTL = timedelta(hours=23)
+
+    _REDIS_ACCESS_TOKEN_KEY = "kis:access_token"
+    _REDIS_ACCESS_TOKEN_EXPIRES_KEY = "kis:access_token:expires_at"
+    _REDIS_APPROVAL_KEY_KEY = "kis:ws:approval_key"
+    _REDIS_APPROVAL_KEY_EXPIRES_KEY = "kis:ws:approval_key:expires_at"
+    _REDIS_LOCK_TIMEOUT_SECONDS = 10  # 발급 API 왕복 시간 감안한 락 최대 보유시간
 
     def __init__(self) -> None:
         self._access_token: str | None = None
@@ -48,10 +72,19 @@ class KisTokenClient:
             now = datetime.now(timezone.utc)
             if self._access_token and self._expires_at and now < self._expires_at:
                 return self._access_token
+            if self._load_cached_access_token(now):
+                return self._access_token  # type: ignore[return-value]
             if self._token_failed_until and now < self._token_failed_until:
                 raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+            if not settings.is_production:
+                logger.info("[KIS] Access token expired or missing.")
             try:
-                token = self._issue_token(now)
+                if settings.is_production:
+                    token = self._with_redis_lock(
+                        "kis:lock:access_token", lambda: self._issue_and_store_access_token()
+                    )
+                else:
+                    token = self._issue_and_store_access_token()
             except BusinessException:
                 self._token_failed_until = now + self._TOKEN_FAILURE_COOLDOWN
                 raise
@@ -67,7 +100,119 @@ class KisTokenClient:
             now = datetime.now(timezone.utc)
             if self._approval_key and self._approval_expires_at and now < self._approval_expires_at:
                 return self._approval_key
-            return self._issue_approval_key(now)
+            if self._load_cached_approval_key(now):
+                return self._approval_key  # type: ignore[return-value]
+            if not settings.is_production:
+                logger.info("[KIS] WebSocket approval key expired or missing.")
+            if settings.is_production:
+                return self._with_redis_lock(
+                    "kis:lock:ws_approval_key", lambda: self._issue_and_store_approval_key()
+                )
+            return self._issue_and_store_approval_key()
+
+    # --- 2차 저장소 읽기 (dev=.env / prod=Redis) — 락 재확인 시에도 재사용하므로
+    # 항상 "지금 시각" 기준으로 새로 판단한다 ---
+
+    def _load_cached_access_token(self, now: datetime) -> bool:
+        if settings.is_production:
+            value = redis_client.get(self._REDIS_ACCESS_TOKEN_KEY) or ""
+            expiry_raw = redis_client.get(self._REDIS_ACCESS_TOKEN_EXPIRES_KEY) or ""
+        else:
+            value = settings.kis_access_token.strip()
+            expiry_raw = settings.kis_access_token_expires_at.strip()
+        expires_at = self._parse_iso(expiry_raw) if value and expiry_raw else None
+        if not value or expires_at is None or now >= expires_at:
+            return False
+        self._access_token, self._expires_at = value, expires_at
+        return True
+
+    def _load_cached_approval_key(self, now: datetime) -> bool:
+        if settings.is_production:
+            value = redis_client.get(self._REDIS_APPROVAL_KEY_KEY) or ""
+            expiry_raw = redis_client.get(self._REDIS_APPROVAL_KEY_EXPIRES_KEY) or ""
+        else:
+            value = settings.kis_ws_approval_key.strip()
+            expiry_raw = settings.kis_ws_approval_key_expires_at.strip()
+        expires_at = self._parse_iso(expiry_raw) if value and expiry_raw else None
+        if not value or expires_at is None or now >= expires_at:
+            return False
+        self._approval_key, self._approval_expires_at = value, expires_at
+        return True
+
+    # --- 발급 + 저장 ---
+
+    def _issue_and_store_access_token(self) -> str:
+        # Redis 락 안에서 다시 호출될 수 있으니(다른 워커가 락을 쥔 사이 이미 발급해뒀을
+        # 경우) 매번 최신 캐시를 재확인하고 나서야 실제 KIS API를 부른다.
+        now = datetime.now(timezone.utc)
+        if self._load_cached_access_token(now):
+            return self._access_token  # type: ignore[return-value]
+
+        token = self._issue_token(now)
+        if settings.is_production:
+            self._write_redis_pair(
+                self._REDIS_ACCESS_TOKEN_KEY, self._REDIS_ACCESS_TOKEN_EXPIRES_KEY,
+                self._access_token, self._expires_at,  # type: ignore[arg-type]
+            )
+        else:
+            logger.info(
+                "[KIS] New access token issued.\n"
+                "KIS_ACCESS_TOKEN=%s\nKIS_ACCESS_TOKEN_EXPIRES_AT=%s\n"
+                "Please update your local .env.",
+                self._access_token, self._expires_at.isoformat(),  # type: ignore[union-attr]
+            )
+        return token
+
+    def _issue_and_store_approval_key(self) -> str:
+        now = datetime.now(timezone.utc)
+        if self._load_cached_approval_key(now):
+            return self._approval_key  # type: ignore[return-value]
+
+        key = self._issue_approval_key(now)
+        if settings.is_production:
+            self._write_redis_pair(
+                self._REDIS_APPROVAL_KEY_KEY, self._REDIS_APPROVAL_KEY_EXPIRES_KEY,
+                self._approval_key, self._approval_expires_at,  # type: ignore[arg-type]
+            )
+        else:
+            logger.info(
+                "[KIS] New WebSocket approval key issued.\n"
+                "KIS_WS_APPROVAL_KEY=%s\nKIS_WS_APPROVAL_KEY_EXPIRES_AT=%s\n"
+                "Please update your local .env.",
+                self._approval_key, self._approval_expires_at.isoformat(),  # type: ignore[union-attr]
+            )
+        return key
+
+    def _write_redis_pair(self, value_key: str, expiry_key: str, value: str, expires_at: datetime) -> None:
+        ttl = max(1, int((expires_at - datetime.now(timezone.utc)).total_seconds()))
+        redis_client.set(value_key, value, ex=ttl)
+        redis_client.set(expiry_key, expires_at.isoformat(), ex=ttl)
+
+    def _with_redis_lock(self, lock_key: str, fn):
+        lock = redis_client.lock(
+            lock_key, timeout=self._REDIS_LOCK_TIMEOUT_SECONDS, blocking_timeout=self._REDIS_LOCK_TIMEOUT_SECONDS
+        )
+        if not lock.acquire(blocking=True):
+            # 락을 못 잡아도(드묾) 직접 발급을 시도한다 — 최악의 경우 레이트리밋 에러로
+            # 수렴하고 위쪽 _token_failed_until 쿨다운이 재시도 폭주를 막아준다.
+            return fn()
+        try:
+            return fn()
+        finally:
+            try:
+                lock.release()
+            except Exception:
+                pass
+
+    @staticmethod
+    def _parse_iso(value: str) -> datetime | None:
+        """.env/Redis에 우리가 직접 써둔(또는 개발자가 복사해 붙인) ISO 8601 만료시각을
+        파싱한다. KIS API 응답 자체의 시각 포맷은 `_parse_expiry`가 따로 처리한다."""
+        try:
+            parsed = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+        return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
 
     def websocket_url(self) -> str:
         return settings.kis_websocket_url
@@ -390,7 +535,7 @@ class KisTokenClient:
             raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
 
         self._approval_key = approval_key
-        self._approval_expires_at = now + timedelta(hours=23)
+        self._approval_expires_at = now + self._WS_APPROVAL_KEY_TTL
         return approval_key
 
     @staticmethod
