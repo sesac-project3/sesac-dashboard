@@ -16,7 +16,8 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
   return (
     <div className="flex flex-col gap-3">
       {/* 캐러셀 스와이프 카드 영역 */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      {/* sm(640px) 대신 400px부터 2열로 — 모바일 폭에서도 코스피/코스닥이 나란히 보이도록 */}
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
         {indices.map((idx, i) => (
           <Card
             key={idx.title}
