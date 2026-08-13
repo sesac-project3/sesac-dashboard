@@ -11,6 +11,7 @@ from app.domain.auth.models import User
 from app.domain.stocks.models import Stock
 from app.domain.watchlists.models import Watchlist
 from app.domain.stocks.home_dashboard_service import fetch_index_details, fetch_stock_ranking_items
+from app.domain.reports.service import report_service
 from app.domain.telegram.models import TelegramNotification
 from app.domain.telegram.router import send_telegram_message
 
@@ -38,7 +39,7 @@ async def send_morning_briefing(db: Session):
         existing = db.scalar(
             select(TelegramNotification).where(
                 TelegramNotification.user_id == user.id,
-                TelegramNotification.notification_type == "MORNING_BRIEFING",
+                TelegramNotification.notification_type == "조간_브리핑",
                 TelegramNotification.sent_date == today_date
             )
         )
@@ -52,20 +53,28 @@ async def send_morning_briefing(db: Session):
 
         watchlist_text = ""
         if watchlist_stocks:
-            watchlist_text = "<b>2. 관심종목 전일 마감 현황</b>\n"
+            watchlist_text = "<b>2. 관심종목 개장 전 주요 뉴스</b>\n"
             for stock in watchlist_stocks:
-                watchlist_text += f"• <b>{stock.name}({stock.code})</b>: 전일 대비 리포트 및 지수 대조 경보 준비 완료.\n"
+                report = report_service.get_stock_report(db, stock.code)
+                news_title = "최근 등록된 뉴스가 없습니다."
+                news_sentiment = ""
+                if report and report.latestNews:
+                    first_news = report.latestNews[0]
+                    news_title = first_news.title
+                    news_sentiment = f" ({first_news.sentiment})"
+                watchlist_text += f"• <b>{stock.name}({stock.code})</b>: \"{news_title}\"{news_sentiment}\n"
         else:
             watchlist_text = "<b>2. 관심종목 정보</b>\n등록된 관심종목이 없습니다. 웹 대시보드에서 관심종목을 등록하시면 분석 알림을 받으실 수 있습니다.\n"
 
         briefing_text = (
             f"🌤️ <b>[오전 시장 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
-            f"<b>1. 주요 지수 마감 정보</b>\n"
+            f"국내 증시 개장 전, 전일 마감 정보 및 관심종목 최신 뉴스 요약입니다.\n\n"
+            f"<b>1. 전일 국내 증시 마감</b>\n"
             f"• 코스피: {kospi_text}\n"
             f"• 코스닥: {kosdaq_text}\n\n"
             f"{watchlist_text}\n"
             f"<b>3. 오늘의 투자 관전 포인트</b>\n"
-            f"• 어제 장 마감 동향과 글로벌 거시 지표에 기반해 오늘 장 개장 시 변동성이 있을 수 있으니 관심종목 실시간 캔들을 예의주시하세요.\n\n"
+            f"• 어제 장 마감 동향과 관심종목들의 개장 전 최신 뉴스를 바탕으로 금일 시황 변동성에 대비해 실시간 캔들을 예의주시하세요.\n\n"
             f"오늘도 성공적인 투자 하루 되세요! 👍"
         )
 
@@ -74,7 +83,7 @@ async def send_morning_briefing(db: Session):
             # Log dispatch to prevent duplicate sends
             log_entry = TelegramNotification(
                 user_id=user.id,
-                notification_type="MORNING_BRIEFING",
+                notification_type="조간_브리핑",
                 sent_date=today_date
             )
             db.add(log_entry)
@@ -104,7 +113,7 @@ async def send_evening_briefing(db: Session):
         existing = db.scalar(
             select(TelegramNotification).where(
                 TelegramNotification.user_id == user.id,
-                TelegramNotification.notification_type == "AFTERNOON_BRIEFING",
+                TelegramNotification.notification_type == "마감_브리핑",
                 TelegramNotification.sent_date == today_date
             )
         )
@@ -117,14 +126,16 @@ async def send_evening_briefing(db: Session):
 
         watchlist_text = ""
         if watchlist_stocks:
-            watchlist_text = "<b>2. 관심종목 당일 등락 요약</b>\n"
+            watchlist_text = "<b>2. 관심종목 마감 결과 & AI 의견</b>\n"
             for stock in watchlist_stocks:
                 item = price_by_code.get(stock.code)
+                report = report_service.get_stock_report(db, stock.code)
+                judgement = report.judgement if report else "관망"
                 if item:
                     sign = "+" if item.changePercent >= 0 else ""
                     watchlist_text += (
                         f"• <b>{stock.name}({stock.code})</b>: "
-                        f"{item.price:,.0f}원 ({sign}{item.changePercent:.2f}%)\n"
+                        f"{item.price:,.0f}원 ({sign}{item.changePercent:.2f}%) — <b>AI 의견: {judgement}</b>\n"
                     )
                 else:
                     watchlist_text += f"• <b>{stock.name}({stock.code})</b>: 가격 정보 없음\n"
@@ -133,19 +144,19 @@ async def send_evening_briefing(db: Session):
 
         briefing_text = (
             f"🔔 <b>[장 마감 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
-            f"오늘 국내 증시 및 관심종목 마감 결과입니다.\n\n"
+            f"오늘 국내 증시 마감 결과 및 관심종목 요약입니다.\n\n"
             f"<b>1. 시장 지수 마감</b>\n"
             f"• 코스피: {kospi_text}\n"
             f"• 코스닥: {kosdaq_text}\n\n"
             f"{watchlist_text}\n"
-            f"상세 분석 내용 및 관련 핵심 뉴스는 AI 리포트 딥링크로 접속해 확인해 주세요."
+            f"상세 분석 내용 및 관련 핵심 뉴스는 대시보드 화면을 통해 확인해 주세요."
         )
 
         try:
             await send_telegram_message(user.telegram_chat_id, briefing_text)
             log_entry = TelegramNotification(
                 user_id=user.id,
-                notification_type="AFTERNOON_BRIEFING",
+                notification_type="마감_브리핑",
                 sent_date=today_date
             )
             db.add(log_entry)
@@ -191,7 +202,7 @@ async def check_price_alerts(db: Session):
                 existing = db.scalar(
                     select(TelegramNotification).where(
                         TelegramNotification.user_id == user.id,
-                        TelegramNotification.notification_type == "PRICE_ALERT",
+                        TelegramNotification.notification_type == "시그널",
                         TelegramNotification.stock_id == stock.id,
                         TelegramNotification.sent_date == today_date
                     )
@@ -214,7 +225,7 @@ async def check_price_alerts(db: Session):
                     await send_telegram_message(user.telegram_chat_id, alert_text)
                     log_entry = TelegramNotification(
                         user_id=user.id,
-                        notification_type="PRICE_ALERT",
+                        notification_type="시그널",
                         stock_id=stock.id,
                         sent_date=today_date
                     )
