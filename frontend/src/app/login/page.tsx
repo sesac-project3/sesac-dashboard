@@ -1,25 +1,7 @@
-"use client";
+import { redirect } from "next/navigation";
 
-import { redirectToKakaoLogin } from "@/shared/api/auth";
-import PageContainer from "@/shared/ui/PageContainer";
-
+// 온보딩+카카오 로그인 CTA는 이제 홈(/)이 로그아웃 상태일 때 보여준다(HomeGate).
+// /login은 그 전 위치를 기억하고 있을 수 있는 링크/북마크를 위해 홈으로 보내기만 한다.
 export default function LoginPage() {
-  return (
-    <PageContainer>
-      <div className="flex flex-col items-center gap-6 py-16 text-center">
-        <h1 className="text-[22px] font-semibold text-heading">로그인</h1>
-        <p className="text-[14px] text-caption">
-          카카오 계정으로 로그인하고
-          <br />
-          관심 종목을 관리해보세요.
-        </p>
-        <button
-          onClick={redirectToKakaoLogin}
-          className="h-[52px] w-full rounded-sm bg-[#FEE500] text-[15px] font-medium text-black/85 transition active:scale-[0.98]"
-        >
-          카카오로 로그인
-        </button>
-      </div>
-    </PageContainer>
-  );
+  redirect("/");
 }

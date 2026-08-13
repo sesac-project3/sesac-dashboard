@@ -15,9 +15,13 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379/0"
 
     # --- JWT (ISSUE-001) ---
+    # ponytail: 필드명이 실제 .env의 ACCESS_TOKEN_EXPIRE_MINUTES/REFRESH_TOKEN_EXPIRE_DAYS와
+    # 안 맞으면(예전엔 jwt_access_expire_minutes였음) pydantic-settings가 그 값을 조용히
+    # 무시하고 기본값을 쓴다 — 여기 이름을 .env 쪽에 맞춰서 그 사고 재발을 막는다.
     jwt_secret_key: str = "change-me"
-    jwt_access_expire_minutes: int = 60
-    jwt_refresh_expire_days: int = 14
+    jwt_algorithm: str = "HS256"
+    access_token_expire_minutes: int = 60
+    refresh_token_expire_days: int = 14
 
     # --- 카카오 OAuth ---
     kakao_client_id: str = ""

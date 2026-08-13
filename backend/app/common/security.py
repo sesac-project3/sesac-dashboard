@@ -13,8 +13,6 @@ from app.common.exceptions import BusinessException, ErrorCode
 from app.core.config import settings
 from app.core.redis import redis_client
 
-ALGORITHM = "HS256"
-
 
 def _refresh_key(user_id: int) -> str:
     return f"refresh:{user_id}"
@@ -24,13 +22,13 @@ def create_access_token(user_id: int) -> str:
     payload = {
         "sub": str(user_id),
         "type": "access",
-        "exp": int(time.time()) + settings.jwt_access_expire_minutes * 60,
+        "exp": int(time.time()) + settings.access_token_expire_minutes * 60,
     }
-    return jwt.encode(payload, settings.jwt_secret_key, algorithm=ALGORITHM)
+    return jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
 
 
 def create_refresh_token(user_id: int) -> str:
-    ttl_seconds = settings.jwt_refresh_expire_days * 24 * 60 * 60
+    ttl_seconds = settings.refresh_token_expire_days * 24 * 60 * 60
     payload = {
         "sub": str(user_id),
         "type": "refresh",
@@ -39,7 +37,7 @@ def create_refresh_token(user_id: int) -> str:
         # 회전 전/후 토큰이 완전히 같은 문자열이 되어 재사용 탐지가 무력화된다.
         "jti": uuid.uuid4().hex,
     }
-    token = jwt.encode(payload, settings.jwt_secret_key, algorithm=ALGORITHM)
+    token = jwt.encode(payload, settings.jwt_secret_key, algorithm=settings.jwt_algorithm)
     redis_client.set(_refresh_key(user_id), token, ex=ttl_seconds)
     return token
 
@@ -51,7 +49,7 @@ def rotate_refresh_token(refresh_token: str) -> tuple[str, str]:
     로그아웃되었거나 이미 회전되어 폐기된 토큰의 재사용을 막기 위함.
     """
     try:
-        payload = jwt.decode(refresh_token, settings.jwt_secret_key, algorithms=[ALGORITHM])
+        payload = jwt.decode(refresh_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         raise BusinessException(ErrorCode.INVALID_TOKEN)
 
@@ -71,7 +69,7 @@ def revoke_refresh_token(user_id: int) -> None:
 
 def decode_access_token(access_token: str) -> int:
     try:
-        payload = jwt.decode(access_token, settings.jwt_secret_key, algorithms=[ALGORITHM])
+        payload = jwt.decode(access_token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm])
     except jwt.PyJWTError:
         raise BusinessException(ErrorCode.INVALID_TOKEN)
     if payload.get("type") != "access":
