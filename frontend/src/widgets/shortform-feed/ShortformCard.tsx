@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { Sparkles, Volume2, VolumeX } from "lucide-react";
 import type { Shortform } from "@/entities/shortform/types";
 import LikeButton from "@/features/shortform-like/LikeButton";
 import { getResumePosition, saveVideoPosition } from "@/widgets/shortform-feed/videoPositionStore";
@@ -132,7 +132,13 @@ export default function ShortformCard({
           가짜 수치 아님) — 나중에 OpenAI로 리포트 요약을 따로 생성하면 그 결과로 교체.
           article의 자식이라 카드가 스크롤될 때 영상과 같이 그 위치에서 이동한다(별도 처리 불필요). */}
       <div className="pointer-events-none absolute inset-x-0 top-1/2 -translate-y-1/2 px-6 text-center">
-        <p className="inline-block rounded-2xl bg-black/45 px-4 py-3 text-2xl leading-snug font-extrabold text-white backdrop-blur-[2px]">
+        <p
+          className="text-2xl leading-snug font-extrabold text-white"
+          style={{
+            textShadow:
+              "-2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000, 0 2px 8px rgba(0,0,0,0.4)",
+          }}
+        >
           {insightLines[0] ?? "AI 리포트 요약 준비 중"}
         </p>
       </div>
@@ -154,10 +160,15 @@ export default function ShortformCard({
           >
             <button
               onClick={() => setMuted(!isMuted)}
-              className="text-xs leading-none"
+              className="flex items-center justify-center text-white"
               aria-label={isMuted ? "음소거 해제" : "음소거"}
+              title={isMuted ? "음소거 해제" : "음소거"}
             >
-              {isMuted || volume === 0 ? "🔇" : "🔊"}
+              {isMuted || volume === 0 ? (
+                <VolumeX className="h-4 w-4" aria-hidden="true" />
+              ) : (
+                <Volume2 className="h-4 w-4" aria-hidden="true" />
+              )}
             </button>
             <input
               type="range"
@@ -223,7 +234,7 @@ export default function ShortformCard({
 
       {/* 하단: 종목명/자막(캡션) + CTA — 자막은 접근성 위해 항상 텍스트로 노출 (PRD §8) */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex flex-col gap-3 bg-gradient-to-t from-black/80 to-transparent p-4 pb-6">
-        <div className="pointer-events-auto">
+        <div className="pointer-events-auto rounded-xl bg-black/50 px-3 py-2 backdrop-blur-[2px]">
           <p className="text-[13px] font-semibold text-white/80">
             {shortform.stockName} · {shortform.stockCode}
           </p>
