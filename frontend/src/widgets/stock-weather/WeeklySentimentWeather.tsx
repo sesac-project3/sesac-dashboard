@@ -132,7 +132,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
       {/* Viewport: overflow hidden, always shows exactly 7 items */}
       <div
         ref={containerRef}
-        className="overflow-hidden py-1 cursor-grab active:cursor-grabbing"
+        className="overflow-hidden py-1"
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -162,7 +162,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
             return (
               <div
                 key={item.date}
-                className="group flex flex-col items-center justify-center rounded-xl bg-slate-50 py-2.5 px-1 mx-[3px] transition-colors hover:bg-slate-100 hover:shadow-sm select-none cursor-pointer"
+                className="group flex flex-col items-center justify-center rounded-xl bg-slate-50 py-2.5 px-1 mx-[3px] transition-colors hover:bg-slate-100 hover:shadow-sm select-none"
                 style={{ width: `calc(${100 / items.length}% - 6px)` }}
               >
                 <span className="text-[10px] font-medium text-caption">{formattedDate}</span>

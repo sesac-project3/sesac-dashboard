@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { Triangle } from "lucide-react";
 import Card from "@/shared/ui/Card";
 import type { MarketIndexDetail } from "@/entities/stock/types";
@@ -10,8 +9,6 @@ interface MarketIndexCarouselProps {
 }
 
 export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProps) {
-  const [activeIndex, setActiveIndex] = useState(0);
-
   if (!indices || indices.length === 0) return null;
 
   return (
@@ -19,15 +16,10 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
       {/* 캐러셀 스와이프 카드 영역 */}
       {/* sm(640px) 대신 400px부터 2열로 — 모바일 폭에서도 코스피/코스닥이 나란히 보이도록 */}
       <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
-        {indices.map((idx, i) => (
+        {indices.map((idx) => (
           <Card
             key={idx.title}
-            className={`flex flex-col gap-3 border transition-all ${
-              i === activeIndex
-                ? "border-primary/40 shadow-md dark:border-primary/50"
-                : "border-border-soft opacity-90"
-            }`}
-            onClick={() => setActiveIndex(i)}
+            className="flex flex-col gap-3 border-border-soft"
           >
             {/* 타이틀 및 지수 수치 */}
             <div>

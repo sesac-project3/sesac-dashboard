@@ -72,6 +72,15 @@ body {
   color: var(--foreground);
 }
 
+@keyframes drawer-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.animate-drawer-up {
+  animation: drawer-up 400ms ease-out both;
+}
+
 /* 스크롤은 그대로 되지만 스크롤바만 안 보이게 (캐러셀/스와이프 피드처럼 스와이프로만
    넘기는 걸 전제로 한 스크롤 영역에 사용). Tailwind엔 기본 유틸리티가 없어서 직접 정의. */
 .no-scrollbar {

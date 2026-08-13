@@ -187,7 +187,7 @@ export default function StockChart({
     element.replaceChildren();
     const title = document.createElement("div");
     title.textContent = formatTooltipTimestamp(String(tooltip.title[0] ?? ""), interval);
-    title.style.cssText = "color:#374151;font-weight:700;margin-bottom:8px";
+    title.style.cssText = "color:#374151;font-weight:700;font-size:12px;margin-bottom:8px";
     element.appendChild(title);
 
     for (const [label, value, color] of [
@@ -198,7 +198,7 @@ export default function StockChart({
       ["거래량", candle.volume, "#9ca3af"],
     ] as const) {
       const row = document.createElement("div");
-      row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-family:monospace";
+      row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-size:12px";
       row.style.color = color;
       row.innerHTML = `<span>${label}</span><span>${label === "거래량" ? formatVolume(value) : formatPrice(value)}</span>`;
       element.appendChild(row);

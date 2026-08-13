@@ -74,9 +74,9 @@ export default function AiReportDetailModal({
 
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm sm:items-center sm:p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="relative flex h-[90vh] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-[#F8F9FA] text-[#191F28] shadow-2xl sm:h-[85vh] sm:rounded-3xl border border-slate-200"
+        className="animate-drawer-up relative flex h-[90vh] w-full max-w-[480px] flex-col overflow-hidden rounded-t-3xl border border-slate-200 bg-[#F8F9FA] text-[#191F28] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 모달 헤더 */}
@@ -414,7 +414,7 @@ export default function AiReportDetailModal({
               <div className="relative w-full pt-6 pb-2">
                 {/* 현재가 파스텔 뱃지 */}
                 <div
-                  className="absolute top-0 -translate-x-1/2 transition-all duration-500 whitespace-nowrap"
+                  className="absolute -top-1 -translate-x-1/2 transition-all duration-500 whitespace-nowrap"
                   style={{ left: `${priceBandRatio}%` }}
                 >
                   <span className="px-2.5 py-0.5 text-[11px] font-bold text-[#3182F6] bg-[#E8F3FF] rounded-full shadow-xs">
@@ -423,7 +423,7 @@ export default function AiReportDetailModal({
                 </div>
 
                 {/* 그라데이션 게이지 트랙 바 */}
-                <div className="relative h-2 w-full rounded-full bg-gradient-to-r from-[#F04452] via-[#FF9500] to-[#10B981]">
+                <div className="relative h-2 w-full rounded-full bg-[#D1D5DB]">
                   {/* 현재가 위치 흰색/파란 테두리 원형 도트 마크 */}
                   <div
                     className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-white border-[3px] border-[#3182F6] shadow-md transition-all duration-500 z-10"
