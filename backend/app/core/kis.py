@@ -8,7 +8,12 @@ import httpx
 
 from app.common.exceptions import BusinessException, ErrorCode
 from app.core.config import settings
-from app.core.kis_endpoints import CURRENT_PRICE_PATH, DAILY_CANDLE_PATH, MINUTE_CANDLE_PATH
+from app.core.kis_endpoints import (
+    CURRENT_PRICE_PATH,
+    DAILY_CANDLE_PATH,
+    MARKET_INVESTOR_TREND_PATH,
+    MINUTE_CANDLE_PATH,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +24,19 @@ class KisTokenClient:
     _TOKEN_PATH = "/oauth2/tokenP"
     _APPROVAL_PATH = "/oauth2/Approval"
 
+    # KIS 토큰 발급은 "1분당 1회"로 막혀 있다. 한 번 발급 실패하면 이 쿨다운 동안은
+    # 재시도 자체를 하지 않는다 — 안 그러면 한 번의 /home-dashboard 요청 안에서만도
+    # 지수 2번+종목 5번, 총 7번을 순서대로 재시도하며 그때마다 새로 실패해서 오히려
+    # 레이트리밋 창이 계속 늘어나는(먼저 실패한 요청이 남은 대기시간을 계속 갱신하는)
+    # 문제가 있었다.
+    _TOKEN_FAILURE_COOLDOWN = timedelta(seconds=55)
+
     def __init__(self) -> None:
         self._access_token: str | None = None
         self._expires_at: datetime | None = None
         self._approval_key: str | None = None
         self._approval_expires_at: datetime | None = None
+        self._token_failed_until: datetime | None = None
         self._lock = Lock()
 
     def access_token(self) -> str:
@@ -35,7 +48,15 @@ class KisTokenClient:
             now = datetime.now(timezone.utc)
             if self._access_token and self._expires_at and now < self._expires_at:
                 return self._access_token
-            return self._issue_token(now)
+            if self._token_failed_until and now < self._token_failed_until:
+                raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+            try:
+                token = self._issue_token(now)
+            except BusinessException:
+                self._token_failed_until = now + self._TOKEN_FAILURE_COOLDOWN
+                raise
+            self._token_failed_until = None
+            return token
 
     def approval_key(self) -> str:
         now = datetime.now(timezone.utc)
@@ -234,6 +255,53 @@ class KisTokenClient:
         if body.get("rt_cd") not in (None, "0"):
             raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
         return body.get("output", {})
+
+    def market_investor_trend(self, index_code: str, market_flag: str) -> dict[str, str]:
+        """
+        KIS 국내주식 시장별 투자자매매동향(일별) API (/uapi/domestic-stock/v1/quotations/
+        inquire-investor-daily-by-market) 호출. 업종지수(코스피/코스닥) 현재가와 개인/외국인/
+        기관 순매수 대금을 하루치 한 행으로 함께 준다.
+        - index_code: "0001"(코스피), "1001"(코스닥)
+        - market_flag: "KSP"(코스피), "KSQ"(코스닥)
+        반환 주요 필드: bstp_nmix_prpr(지수), bstp_nmix_prdy_vrss(전일대비),
+        bstp_nmix_prdy_ctrt(등락률%), prdy_vrss_sign, frgn_ntby_tr_pbmn/prsn_ntby_tr_pbmn/
+        orgn_ntby_tr_pbmn(외국인/개인/기관 순매수 대금, 백만원 단위).
+        """
+        today = datetime.now(ZoneInfo("Asia/Seoul")).strftime("%Y%m%d")
+        response = httpx.get(
+            f"{settings.kis_base_url.rstrip('/')}{MARKET_INVESTOR_TREND_PATH}",
+            params={
+                "fid_cond_mrkt_div_code": "U",
+                "fid_input_iscd": index_code,
+                "fid_input_date_1": today,
+                "fid_input_iscd_1": market_flag,
+                "fid_input_date_2": today,
+                "fid_input_iscd_2": index_code,
+            },
+            headers={
+                "authorization": f"Bearer {self.access_token()}",
+                "appkey": settings.kis_app_key,
+                "appsecret": settings.kis_app_secret,
+                "tr_id": "FHPTJ04040000",
+                "custtype": "P",
+            },
+            timeout=20.0,
+        )
+        try:
+            response.raise_for_status()
+            body = response.json()
+        except (httpx.HTTPError, ValueError) as exc:
+            logger.error(
+                "KIS market investor trend request failed: %s, body=%s",
+                _http_error_summary(response, exc),
+                _response_error_body(response),
+            )
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE) from exc
+
+        if body.get("rt_cd") not in (None, "0"):
+            raise BusinessException(ErrorCode.SERVICE_UNAVAILABLE)
+        output = body.get("output", [])
+        return output[0] if output else {}
 
     def _issue_token(self, now: datetime) -> str:
 

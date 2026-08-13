@@ -13,6 +13,7 @@ class Shortform(BaseModel):
     aiInsight: str | None = None
     likeCount: int = 0
     viewCount: int = 0
+    liked: bool = False
 
 
 class LikeToggleResponse(BaseModel):

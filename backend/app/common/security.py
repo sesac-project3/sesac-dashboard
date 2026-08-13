@@ -82,3 +82,15 @@ def get_current_user_id(authorization: str = Header(default="")) -> int:
     if not authorization.startswith("Bearer "):
         raise BusinessException(ErrorCode.UNAUTHORIZED)
     return decode_access_token(authorization.removeprefix("Bearer "))
+
+
+def get_optional_user_id(authorization: str = Header(default="")) -> int | None:
+    """로그인 없이도 열람 가능한 라우트에서, 로그인했으면 그 사용자 기준으로 개인화하고
+    아니면 조용히 None을 준다(401을 던지지 않음). 토큰이 있는데 무효하면 그것도 None —
+    비로그인과 동일하게 취급(공개 라우트에서 굳이 에러로 막을 이유가 없음)."""
+    if not authorization.startswith("Bearer "):
+        return None
+    try:
+        return decode_access_token(authorization.removeprefix("Bearer "))
+    except BusinessException:
+        return None

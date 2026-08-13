@@ -8,11 +8,13 @@ from app.common.exceptions import BusinessException, ErrorCode
 from app.common.response import ApiResponse
 from app.core.database import get_db
 from app.domain.stocks.chart_service import get_candles
+from app.domain.stocks.home_dashboard_service import get_home_dashboard
 from app.domain.stocks.models import Stock as StockModel
 from app.domain.stocks.schemas import (
     CandleBackfillResponse,
     CandleResponse,
     ChartInterval,
+    HomeDashboard,
     MarketIndex,
     MinuteCandleBackfillResponse,
     Stock,
@@ -33,8 +35,6 @@ def weekly_sentiments(stock_id_or_code: str, db: Session = Depends(get_db)):
     return ApiResponse.ok(get_weekly_stock_sentiments(db, stock_id_or_code))
 
 
-
-
 @router.get("", response_model=ApiResponse[list[Stock]])
 def list_stocks(db: Session = Depends(get_db)):
     # ponytail: merge conflict 정리하면서 원래 있던 5종목 마스터 목록 엔드포인트가
@@ -46,6 +46,12 @@ def list_stocks(db: Session = Depends(get_db)):
 @router.websocket("/ws")
 async def market_websocket(websocket: WebSocket):
     await handle_market_websocket(websocket)
+
+
+@router.get("/home-dashboard", response_model=ApiResponse[HomeDashboard])
+def home_dashboard(db: Session = Depends(get_db)):
+    # /{stock_code}보다 먼저 등록해야 한다 — 안 그러면 "home-dashboard"가 종목코드로 잡힘.
+    return ApiResponse.ok(get_home_dashboard(db))
 
 
 @router.get("/{stock_code}", response_model=ApiResponse[Stock])

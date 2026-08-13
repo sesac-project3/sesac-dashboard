@@ -5,13 +5,15 @@ from typing import Literal
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.common.response import ApiResponse
 from app.common.s3 import get_shortform_video_url
-from app.common.security import get_current_user_id
+from app.common.security import get_current_user_id, get_optional_user_id
 from app.core.database import get_db
 from app.domain.shortforms.generation_service import generate_all_shortforms
+from app.domain.shortforms.like_cache import get_liked_ids, mark_liked, mark_unliked
 from app.domain.shortforms.models import Shortform as ShortformModel
 from app.domain.shortforms.models import ShortformLike
 from app.domain.shortforms.schemas import BackgroundVideoResponse, LikeToggleResponse
@@ -26,7 +28,7 @@ from app.domain.stt.service import (
 router = APIRouter(prefix="/shortforms", tags=["shortforms"])
 
 
-def _to_schema(row: ShortformModel, stock: Stock) -> ShortformSchema:
+def _to_schema(row: ShortformModel, stock: Stock, liked: bool = False) -> ShortformSchema:
     # S3 presigned URL은 1시간 뒤 만료된다 — 생성 시점 값을 DB에 저장해두고 그대로 돌려주면
     # 언젠간 반드시 깨진다. 그래서 조회마다 S3에서 새로 발급하고, S3에 없을 때만
     # row.video_url(수동으로 넣어둔 외부 URL 등)을 폴백으로 쓴다.
@@ -42,6 +44,7 @@ def _to_schema(row: ShortformModel, stock: Stock) -> ShortformSchema:
         aiInsight=row.ai_insight,
         likeCount=row.like_count,
         viewCount=row.view_count,
+        liked=liked,
     )
 
 
@@ -58,13 +61,28 @@ def get_background_video(stock_code: str, sentiment: Literal["긍정", "부정"]
 
 
 @router.get("", response_model=ApiResponse[list[ShortformSchema]])
-def list_shortforms(db: Session = Depends(get_db)):
+def list_shortforms(
+    user_id: int | None = Depends(get_optional_user_id),
+    db: Session = Depends(get_db),
+):
     rows = db.execute(
         select(ShortformModel, Stock)
         .join(Stock, Stock.id == ShortformModel.stock_id)
         .order_by(ShortformModel.published_date.desc())
     ).all()
-    return ApiResponse.ok([_to_schema(sf, stock) for sf, stock in rows])
+    # 비로그인이면 좋아요 여부를 표시할 사용자가 없으니 전부 False(기존과 동일 동작).
+    liked_ids = get_liked_ids(db, user_id) if user_id is not None else set()
+    return ApiResponse.ok([_to_schema(sf, stock, liked=sf.id in liked_ids) for sf, stock in rows])
+
+
+@router.get("/liked-ids", response_model=ApiResponse[list[int]])
+def liked_shortform_ids(user_id: int = Depends(get_current_user_id), db: Session = Depends(get_db)):
+    """이 목록 API는 프론트가 클라이언트 사이드에서 따로 부른다 — /shortforms 자체는
+    Next.js 서버 컴포넌트가 revalidate 캐시로 부르는데(모든 사용자가 공유하는 캐시라
+    요청자의 로그인 토큰을 실어 보낼 수가 없다), liked는 사용자별로 달라서 그 경로로는
+    절대 정확할 수 없다. 그래서 좋아요 여부만 따로, 브라우저에서 토큰을 실어 이 엔드포인트로
+    가져와 화면에 합친다."""
+    return ApiResponse.ok(sorted(get_liked_ids(db, user_id)))
 
 
 @router.post("", response_model=ApiResponse[ShortformSchema])
@@ -151,5 +169,19 @@ def toggle_like(
         row.like_count = max(0, row.like_count - 1)
         liked = False
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        # 같은 좋아요에 대한 요청이 여러 탭/기기에서 동시에 들어와 UNIQUE 제약에 걸린
+        # 경우 — 이미 다른 요청이 좋아요를 완료했다는 뜻이라 에러가 아니라 "좋아요됨"으로
+        # 취급한다. 프론트는 같은 버튼의 요청을 순서대로만 보내지만(레이스 방지), 다른
+        # 탭/기기의 요청까지는 그걸로 못 막는다.
+        db.rollback()
+        row = db.get(ShortformModel, shortform_id)
+        liked = True
+
+    # write-through: DB 커밋에 성공한 뒤에만 캐시를 갱신한다 — 커밋이 실패해서 위 except로
+    # 빠졌을 때도 결과가 liked=True로 확정됐으니 캐시도 그에 맞춰 갱신.
+    (mark_liked if liked else mark_unliked)(user_id, shortform_id)
+
     return ApiResponse.ok(LikeToggleResponse(liked=liked, likeCount=row.like_count))

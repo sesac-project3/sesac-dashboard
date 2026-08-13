@@ -15,6 +15,7 @@ from app.domain.stocks.router import router as stocks_router
 from app.domain.stocks.market_subscription import restore_kis_subscriptions, subscribe_candle_events
 from app.domain.stt.router import router as stt_router
 from app.domain.telegram.router import router as telegram_router
+from app.domain.watchlists.router import router as watchlists_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -49,6 +50,7 @@ for router in (
     stt_router,
     telegram_router,
     community_router,
+    watchlists_router,
 ):
     app.include_router(router)
 

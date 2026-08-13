@@ -7,7 +7,7 @@ import { HomeIcon, ProfileIcon, ShortformIcon, WatchlistIcon } from "@/widgets/b
 
 // DESIGN_SPEC.md §27: 레퍼런스 제품(모임투자/포트폴리오 등 Out of Scope 기능)의 탭 이름을
 // 그대로 가져오지 않고, 이 제품의 실제 4개 탭(홈/숏폼/관심종목/내 정보)만 노출한다.
-// 시각 규칙(치수 72px 고정 / active=indigo, inactive=gray)은 그대로 적용.
+// 시각 규칙(치수 68px 고정, 각짐 없는 radius 없음, active=indigo, inactive=gray)은 그대로 적용.
 const TABS = [
   { href: "/", label: "홈", Icon: HomeIcon },
   { href: "/shortform", label: "숏폼", Icon: ShortformIcon },
@@ -25,7 +25,7 @@ export default function BottomTabBar() {
 
   return (
     <nav
-      className="flex h-[72px] shrink-0 rounded-t-hero border-t border-border bg-white"
+      className="flex h-[68px] shrink-0 border-t border-border bg-white"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       {TABS.map(({ href, label, Icon }) => {

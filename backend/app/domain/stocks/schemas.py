@@ -22,6 +22,42 @@ class MarketIndex(BaseModel):
     recordedAt: datetime
 
 
+class InvestorTrend(BaseModel):
+    personal: float  # 개인 순매수 대금 (억원)
+    foreign: float  # 외국인 순매수 대금 (억원)
+    institution: float  # 기관 순매수 대금 (억원)
+
+
+class MarketIndexDetail(BaseModel):
+    indexType: Market
+    title: str
+    value: float
+    change: float
+    changePercent: float
+    isUp: bool
+    investors: InvestorTrend
+
+
+class StockRankingItem(BaseModel):
+    code: str
+    name: str
+    price: float
+    change: float
+    changePercent: float
+    isUp: bool
+    volume: int
+    tradingValue: float  # 거래대금 (억원)
+
+
+RankingType = Literal["상승률", "하락률", "거래대금", "거래량"]
+
+
+class HomeDashboard(BaseModel):
+    indices: list[MarketIndexDetail]
+    rankings: dict[RankingType, list[StockRankingItem]]
+    asOf: datetime
+
+
 class Candle(BaseModel):
     timestamp: datetime | date
     openPrice: float
