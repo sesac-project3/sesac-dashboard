@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { pretendard } from "./fonts";
 import AppHeader from "@/widgets/header/AppHeader";
 import BottomTabBar from "@/widgets/bottom-tab/BottomTabBar";
+import StockWebSocketProvider from "@/features/stock-chart/StockWebSocketProvider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -25,13 +26,15 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             480px로 고정 — 480px 미만에서는 그대로 뷰포트 100%, 그 이상에서는 좌우로 bg-surface
             여백이 생기며 가운데 정렬된다. */}
         <div className="flex h-full w-full max-w-[480px] flex-col overflow-hidden bg-background">
-          <AppHeader />
-          {/* min-h-0: flex item은 기본적으로 내용물보다 작아지지 않으려 해서 필요
-              (flexbox 흔한 함정). overflow-y-auto: 일반 페이지 기본 스크롤 담당.
-              no-scrollbar: 스크롤 기능은 그대로 두고 브라우저 기본 스크롤바만 숨김
-              (모바일 앱 느낌 — 데스크톱 브라우저에서 오른쪽에 굵은 스크롤바가 보이던 것 제거). */}
-          <main className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{children}</main>
-          <BottomTabBar />
+          <StockWebSocketProvider>
+            <AppHeader />
+            {/* min-h-0: flex item은 기본적으로 내용물보다 작아지지 않으려 해서 필요
+                (flexbox 흔한 함정). overflow-y-auto: 일반 페이지 기본 스크롤 담당.
+                no-scrollbar: 스크롤 기능은 그대로 두고 브라우저 기본 스크롤바만 숨김
+                (모바일 앱 느낌 — 데스크톱 브라우저에서 오른쪽에 굵은 스크롤바가 보이던 것 제거). */}
+            <main className="no-scrollbar min-h-0 flex-1 overflow-y-auto">{children}</main>
+            <BottomTabBar />
+          </StockWebSocketProvider>
         </div>
       </body>
     </html>

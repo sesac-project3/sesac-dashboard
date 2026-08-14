@@ -9,6 +9,7 @@ import AiMarketIssueCard from "@/widgets/home/AiMarketIssueCard";
 import StockRankingSection from "@/widgets/home/StockRankingSection";
 import { getHomeDashboard, getMarketIssue } from "@/shared/api/stocks";
 import type { HomeDashboard, MarketIssue } from "@/entities/stock/types";
+import useMarketIndexSubscription from "@/features/stock-chart/useMarketIndexSubscription";
 
 function formatAsOf(iso: string) {
   const d = new Date(iso);
@@ -25,6 +26,7 @@ export default function MarketDashboard() {
   const [error, setError] = useState(false);
   const [issue, setIssue] = useState<MarketIssue | null>(null);
   const [issueLoading, setIssueLoading] = useState(true);
+  const { connectionState, updates: liveIndexUpdates } = useMarketIndexSubscription();
   // ponytail: 로딩화면 로직 임시 주석처리 (요청으로 비활성화, 필요해지면 복구)
   // // 최초 로딩 화면: 데이터/에러가 도착하면 진행률 100%를 0.3초 보여준 뒤 실제 화면으로 전환.
   // // doneRef로 "최초 1회"만 걸리게 해서, 5초 주기 자동 갱신 때는 이 화면이 다시 뜨지 않는다.
@@ -50,11 +52,14 @@ export default function MarketDashboard() {
 
   useEffect(() => {
     load();
-    // 5초마다 자동 갱신 — KIS 호출 한도(초당 20건, 앱키는 전체 사용자 공유)를 감안해
-    // 그보다 훨씬 낮은 주기로만 돈다. 새로고침 버튼은 이 interval과 별개로 즉시 재호출.
+  }, [load]);
+
+  useEffect(() => {
+    if (connectionState !== "closed") return;
+    // WebSocket 장애 시에만 REST로 전체 대시보드 데이터를 보완한다.
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [connectionState, load]);
 
   useEffect(() => {
     // AI 이슈는 서버에서 15분 버킷 단위로만 갱신되는 LLM 생성 결과라 5초 폴링에 얹지
@@ -161,7 +166,19 @@ export default function MarketDashboard() {
     <PageContainer>
       <div className="flex flex-col gap-4 py-4 pb-12">
         {/* 1. 코스피 / 코스닥 지수 캐러셀 & 수급 카드 */}
-        <MarketIndexCarousel indices={data.indices} />
+        <MarketIndexCarousel
+          indices={data.indices.map((index) => {
+            const update = liveIndexUpdates[index.indexType];
+            if (!update) return index;
+            return {
+              ...index,
+              value: update.value,
+              change: update.change,
+              changePercent: update.changeRate,
+              isUp: update.changeDirection === "UP",
+            };
+          })}
+        />
 
         {/* 2. 국내 주요 이슈 AI 요약 카드 — 코스피/코스닥 검색 네이버 뉴스 + KIS 지수 실데이터
             기반 생성. 근거가 없으면 지어내지 않고 서버가 null을 주므로 그때는 카드 자체를 숨긴다. */}

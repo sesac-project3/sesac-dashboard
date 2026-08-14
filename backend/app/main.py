@@ -19,6 +19,7 @@ from app.domain.reports.router import router as reports_router
 from app.domain.shortforms.router import router as shortforms_router
 from app.domain.stocks.router import router as stocks_router
 from app.domain.stocks.market_subscription import restore_kis_subscriptions, subscribe_candle_events
+from app.domain.stocks.home_dashboard_service import run_market_issue_precomputer
 from app.domain.stt.router import router as stt_router
 from app.domain.telegram.router import router as telegram_router
 from app.domain.watchlists.router import router as watchlists_router
@@ -27,12 +28,15 @@ from app.domain.watchlists.router import router as watchlists_router
 async def lifespan(_: FastAPI):
     stop_event = asyncio.Event()
     subscriber_task = asyncio.create_task(subscribe_candle_events(stop_event))
+    # 홈 '국내 주요 이슈' 카드를 0/15/30/45분 경계 3분 전에 미리 생성해두는 백그라운드 루프.
+    market_issue_task = asyncio.create_task(run_market_issue_precomputer(stop_event))
     await restore_kis_subscriptions()
     try:
         yield
     finally:
         stop_event.set()
         await subscriber_task
+        await market_issue_task
 
 
 app = FastAPI(title="sesac-dashboard API", lifespan=lifespan)
