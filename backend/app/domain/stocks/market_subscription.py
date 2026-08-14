@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from collections import defaultdict
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from app.domain.stocks.candle_store import (
 
 MARKET_SUBSCRIBERS_PREFIX = "market:subscribers:"
 MAX_CONNECTIONS_PER_USER = 5
+logger = logging.getLogger(__name__)
 
 
 class MarketWebSocketManager:
@@ -26,11 +28,17 @@ class MarketWebSocketManager:
     async def connect(self, websocket: WebSocket, user_id: int) -> bool:
         async with self._lock:
             if len(self._user_connections[user_id]) >= MAX_CONNECTIONS_PER_USER:
+                logger.warning("Market WS connection limit: user_id=%s limit=%s", user_id, MAX_CONNECTIONS_PER_USER)
                 return False
             self._connection_ids[websocket] = uuid4().hex
             self._subscriptions[websocket]
             self._user_connections[user_id].add(websocket)
             websocket.state.user_id = user_id
+            logger.info(
+                "Market WS registered: user_id=%s active_connections=%s",
+                user_id,
+                len(self._user_connections[user_id]),
+            )
             return True
 
     async def disconnect(self, websocket: WebSocket) -> None:
@@ -45,6 +53,11 @@ class MarketWebSocketManager:
                     self._user_connections.pop(user_id, None)
         if connection_id is None:
             return
+        logger.info(
+            "Market WS unregistered: user_id=%s subscriptions=%s",
+            user_id,
+            sorted(stock_codes),
+        )
         for stock_code in stock_codes:
             await self._remove_subscriber(stock_code, connection_id)
 
@@ -56,6 +69,7 @@ class MarketWebSocketManager:
             connection_id = self._connection_ids[websocket]
         if await self._add_subscriber(stock_code, connection_id):
             await get_kis_market_stream().subscribe(stock_code)
+        logger.info("Market WS subscribed: user_id=%s stock_code=%s", websocket.state.user_id, stock_code)
 
     async def unsubscribe(self, websocket: WebSocket, stock_code: str) -> None:
         async with self._lock:
@@ -64,6 +78,7 @@ class MarketWebSocketManager:
             self._subscriptions[websocket].discard(stock_code)
             connection_id = self._connection_ids[websocket]
         await self._remove_subscriber(stock_code, connection_id)
+        logger.info("Market WS unsubscribed: user_id=%s stock_code=%s", websocket.state.user_id, stock_code)
 
     async def _add_subscriber(self, stock_code: str, connection_id: str) -> bool:
         redis = Redis.from_url(settings.redis_url, decode_responses=True)

@@ -19,6 +19,7 @@ const AUTH_TIMEOUT_MS = 5_000;
 
 export type StockWebSocketConnectionState = "idle" | "connecting" | "open" | "closed";
 type MessageListener = (message: CandleWebSocketMessage) => void;
+type OutgoingMessage = { type: string; stockCode?: string; accessToken?: string };
 
 interface StockWebSocketContextValue {
   connectionState: StockWebSocketConnectionState;
@@ -36,6 +37,7 @@ const buildWebSocketUrl = () => {
 
 export default function StockWebSocketProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<WebSocket | null>(null);
+  const connectTimerRef = useRef<number | null>(null);
   const reconnectTimerRef = useRef<number | null>(null);
   const authTimerRef = useRef<number | null>(null);
   const tokenRef = useRef<string | null | undefined>(undefined);
@@ -47,14 +49,19 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
 
   const clearTimers = useCallback(() => {
     if (reconnectTimerRef.current !== null) window.clearTimeout(reconnectTimerRef.current);
+    if (connectTimerRef.current !== null) window.clearTimeout(connectTimerRef.current);
     if (authTimerRef.current !== null) window.clearTimeout(authTimerRef.current);
     reconnectTimerRef.current = null;
+    connectTimerRef.current = null;
     authTimerRef.current = null;
   }, []);
 
-  const send = useCallback((message: object) => {
+  const send = useCallback((message: OutgoingMessage) => {
     const socket = socketRef.current;
-    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+    if (socket?.readyState === WebSocket.OPEN) {
+      console.log("[stock-ws] send", { type: message.type, stockCode: message.stockCode });
+      socket.send(JSON.stringify(message));
+    }
   }, []);
 
   const subscribe = useCallback((stockCode: string, listener: MessageListener) => {
@@ -78,10 +85,23 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
     intentionalCloseRef.current = true;
     authenticatedRef.current = false;
     clearTimers();
-    socketRef.current?.close();
+    const socket = socketRef.current;
+    if (socket?.readyState === WebSocket.CONNECTING) {
+      socket.onopen = () => socket.close();
+    } else {
+      socket?.close();
+    }
     socketRef.current = null;
     setConnectionState("idle");
   }, [clearTimers]);
+
+  const scheduleConnect = useCallback(() => {
+    if (connectTimerRef.current !== null || socketRef.current) return;
+    connectTimerRef.current = window.setTimeout(() => {
+      connectTimerRef.current = null;
+      connectRef.current();
+    }, 0);
+  }, []);
 
   const connect = useCallback(() => {
     const token = tokenRef.current;
@@ -94,6 +114,7 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
     console.log("[stock-ws] connect");
 
     socket.onopen = () => {
+      console.log("[stock-ws] open");
       authenticatedRef.current = false;
       send({ type: "auth", accessToken: token });
       authTimerRef.current = window.setTimeout(() => socket.close(), AUTH_TIMEOUT_MS);
@@ -108,6 +129,7 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       }
 
       if (message.type === "authenticated") {
+        console.log("[stock-ws] authenticated");
         if (authTimerRef.current !== null) window.clearTimeout(authTimerRef.current);
         authTimerRef.current = null;
         authenticatedRef.current = true;
@@ -117,6 +139,11 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       }
 
       if (!("stockCode" in message)) return;
+      console.log("[stock-ws] event", {
+        type: message.type,
+        stockCode: message.stockCode,
+        interval: "interval" in message ? message.interval : undefined,
+      });
       for (const listener of subscriptionsRef.current.get(message.stockCode)?.values() ?? []) {
         listener(message);
       }
@@ -130,6 +157,7 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       setConnectionState("closed");
       console.warn("[stock-ws] close", { code, reason: reason || undefined });
       if (!intentionalCloseRef.current && tokenRef.current && reconnectTimerRef.current === null) {
+        console.log("[stock-ws] reconnect scheduled", { delayMs: RECONNECT_DELAY_MS });
         reconnectTimerRef.current = window.setTimeout(() => {
           reconnectTimerRef.current = null;
           connectRef.current();
@@ -137,7 +165,13 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       }
     };
 
-    socket.onerror = () => socket.close();
+    socket.onerror = () => {
+      if (socket.readyState === WebSocket.CONNECTING) {
+        socket.onopen = () => socket.close();
+        return;
+      }
+      socket.close();
+    };
   }, [clearTimers, send]);
 
   useEffect(() => {
@@ -150,7 +184,7 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       if (nextToken === tokenRef.current) return;
       tokenRef.current = nextToken;
       disconnect();
-      if (nextToken) connect();
+      if (nextToken) scheduleConnect();
     };
 
     syncToken();
@@ -161,7 +195,7 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       window.removeEventListener("storage", syncToken);
       disconnect();
     };
-  }, [connect, disconnect]);
+  }, [connect, disconnect, scheduleConnect]);
 
   const value = useMemo(() => ({ connectionState, subscribe }), [connectionState, subscribe]);
 
