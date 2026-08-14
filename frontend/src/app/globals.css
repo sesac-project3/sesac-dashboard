@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/* DESIGN_SPEC.md §3 Design Tokens. 다크모드는 스펙에 정의돼 있지 않아 임의로 추가하지 않는다
+   (스펙 §0.1: "이 문서에 정의되지 않은 시각적 결정을 임의로 추가하지 않는다"). */
+:root {
+  /* Brand */
+  --color-primary: #542be9;
+  --color-primary-soft: #7c78e8;
+  --color-primary-soft-alt: #7d7bef;
+
+  /* Semantic — 국내 증시 관례: 상승 빨강 / 하락 파랑 (미국식 금지, §4.1) */
+  --color-market-up: #ef4444;
+  --color-market-down: #3b82f6;
+  --color-positive: #2dc98e;
+  --color-danger: #ef4444;
+  --color-info: #3b82f6;
+
+  /* Neutral */
+  --color-ink: #111111;
+  --color-heading: #1f2435;
+  --color-heading-alt: #20253a;
+  --color-caption: #8b90a0;
+  --color-caption-alt: #9aa1b4;
+  --color-surface: #f5f5f7;
+  --color-white: #ffffff;
+  --color-border: #e5e7eb;
+  --color-border-soft: #e7e8f2;
+
+  --background: var(--color-white);
+  --foreground: var(--color-heading);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-primary: var(--color-primary);
+  --color-primary-soft: var(--color-primary-soft);
+  --color-primary-soft-alt: var(--color-primary-soft-alt);
+  --color-market-up: var(--color-market-up);
+  --color-market-down: var(--color-market-down);
+  --color-positive: var(--color-positive);
+  --color-danger: var(--color-danger);
+  --color-info: var(--color-info);
+  --color-ink: var(--color-ink);
+  --color-heading: var(--color-heading);
+  --color-heading-alt: var(--color-heading-alt);
+  --color-caption: var(--color-caption);
+  --color-caption-alt: var(--color-caption-alt);
+  --color-surface: var(--color-surface);
+  --color-border: var(--color-border);
+  --color-border-soft: var(--color-border-soft);
+
+  --font-sans: var(--font-pretendard), ui-sans-serif, system-ui, sans-serif;
+
+  /* §7 Radius System */
+  --radius-sm: 12px;
+  --radius-md: 16px;
+  --radius-lg: 20px;
+  --radius-xl: 24px;
+  --radius-hero: 28px;
+
+  /* §8 Shadow System — 순수 black shadow 금지 */
+  --shadow-card: 0 10px 24px rgba(51, 65, 85, 0.05);
+  --shadow-elevated: 0 12px 32px rgba(70, 72, 212, 0.08);
+  --shadow-glow: 0 10px 18px rgba(130, 154, 233, 0.28);
+  --shadow-modal: 0 24px 48px rgba(22, 26, 38, 0.24);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+}
+
+/* 스크롤은 그대로 되지만 스크롤바만 안 보이게 (캐러셀/스와이프 피드처럼 스와이프로만
+   넘기는 걸 전제로 한 스크롤 영역에 사용). Tailwind엔 기본 유틸리티가 없어서 직접 정의. */
+.no-scrollbar {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+/* 숏폼 카드 볼륨 슬라이더 — 조절점(thumb) 기본 크기가 커서 브라우저 기본값보다
+   작게 줄임. accent-color만으로는 thumb 크기를 못 줄여서 직접 정의. */
+.volume-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: white;
+}
+
+.volume-slider::-moz-range-thumb {
+  width: 8px;
+  height: 8px;
+  border: none;
+  border-radius: 50%;
+  background: white;
+}

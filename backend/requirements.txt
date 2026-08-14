@@ -1,0 +1,26 @@
+fastapi==0.121.2
+uvicorn[standard]==0.38.0
+pydantic-settings==2.12.0
+sqlalchemy==2.0.44
+psycopg2-binary==2.9.10
+redis==6.4.0
+httpx==0.28.1
+pyjwt==2.11.0
+
+# ISSUE-E1: ai/stt 이식 (faster-whisper 전사 + OpenAI 3줄 요약)
+faster-whisper==1.2.1
+openai==2.53.0
+python-multipart==0.0.20
+
+# ISSUE-E3: S3 사전 저장 배경 영상 조회
+boto3==1.43.69
+
+# 한글 깨짐 Mojibake 복원 정제
+ftfy==6.3.1
+
+# 숏폼 비디오 생성 파이프라인
+moviepy==1.0.3
+
+# KRX 주식 정보 수집
+pykrx==1.0.46
+
