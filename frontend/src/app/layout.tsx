@@ -5,7 +5,7 @@ import BottomTabBar from "@/widgets/bottom-tab/BottomTabBar";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ZStock :: 쉽고 빠른 주식정보",
+  title: "ZStock - 쉽고 빠른 주식정보",
   description: "AI 기반 국내주식 투자 인사이트 플랫폼",
   icons: {
     icon: "/img/favicon/favicon.svg",
