@@ -19,10 +19,10 @@ export default function HomeLoadingScreen({ percent }: { percent: number }) {
               style={{ width: `${percent}%` }}
             />
           </div>
-          <span className="text-[12px] font-medium text-caption">{percent}%</span>
+          <span className="text-[11px] font-medium text-caption">{percent}%</span>
         </div>
       </div>
-      <p className="text-[12px] font-medium tracking-wide text-caption uppercase">
+      <p className="text-[11px] font-medium tracking-wide text-caption uppercase">
         Powered by AI Analysis
       </p>
     </div>

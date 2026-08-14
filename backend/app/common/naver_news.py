@@ -32,8 +32,8 @@ def parse_pub_date(pub_date_str: str) -> str:
 
 def evaluate_sentiment(title: str) -> str:
     """기사 제목 기반 단순 키워드 감성 분석 ('긍정' | '부정' | '중립')"""
-    positive_keywords = ["상승", "급등", "호조", "최고", "돌풍", "수주", "흑자", "성장", "회복", "호실적", "급증", "호재"]
-    negative_keywords = ["하락", "급락", "우려", "둔화", "적자", "폭락", "감소", "위기", "악재", "부진", "손실", "비상"]
+    positive_keywords = ["상승", "급등", "호조", "최고", "돌풍", "수주", "흑자", "성장", "회복", "호실적", "급증", "호재", "강세", "수혜"]
+    negative_keywords = ["하락", "급락", "우려", "둔화", "적자", "폭락", "감소", "위기", "악재", "부진", "손실", "비상", "약세"]
 
     pos_count = sum(1 for kw in positive_keywords if kw in title)
     neg_count = sum(1 for kw in negative_keywords if kw in title)

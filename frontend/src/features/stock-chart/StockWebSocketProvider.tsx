@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { API_BASE_URL } from "@/shared/config/env";
-import { AUTH_TOKEN_CHANGED_EVENT, getAccessToken } from "@/shared/api/base";
+import { AUTH_TOKEN_CHANGED_EVENT, getAccessToken, refreshAccessToken } from "@/shared/api/base";
 import type { CandleWebSocketMessage, IndexMessage } from "@/entities/stock/chart-types";
 
 const RECONNECT_DELAY_MS = 2_000;
@@ -220,7 +220,20 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       clearTimers();
       setConnectionState("closed");
       console.warn("[stock-ws] close", { code, reason: reason || undefined });
-      if (!intentionalCloseRef.current && tokenRef.current && reconnectTimerRef.current === null) {
+      if (intentionalCloseRef.current || !tokenRef.current) return;
+
+      // 서버가 인증 실패(1008: 토큰 만료/무효)로 닫은 경우 같은 토큰으로 그냥 재연결하면
+      // 똑같이 거부되는 무한 루프가 된다 — REST 401 인터셉터와 같은 절차로 먼저 갱신한다.
+      // 갱신 성공 시 setTokens가 AUTH_TOKEN_CHANGED_EVENT를 쏴서 아래 syncToken이 새
+      // 토큰으로 재연결하므로 여기서 직접 재연결하지 않는다.
+      if (code === 1008) {
+        refreshAccessToken().catch(() => {
+          console.warn("[stock-ws] token refresh failed after auth rejection; giving up");
+        });
+        return;
+      }
+
+      if (reconnectTimerRef.current === null) {
         console.log("[stock-ws] reconnect scheduled", { delayMs: RECONNECT_DELAY_MS });
         reconnectTimerRef.current = window.setTimeout(() => {
           reconnectTimerRef.current = null;

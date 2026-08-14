@@ -1,4 +1,5 @@
 import math
+import re
 from typing import Literal
 
 def calculate_valuation_band(
@@ -188,14 +189,21 @@ def calculate_stock_opinion(
 
     total_score = round(score, 2)
 
-    # total_score 구간에 따른 의견 및 정성적 신호 세분화
-    if total_score >= 0.45:
+    # total_score 구간에 따른 의견 및 정성적 신호 세분화.
+    # 컷오프(0.40 / -0.10)는 scripts/backtest_scoring.py로 DB 실데이터(5종목 x 65개 시점,
+    # 2026-07-18~07-31, 정답=T+10거래일 등락 ±3%) 그리드서치한 결과 — 기존 값(0.45/-0.30)의
+    # 30.8%에서 35.4%로 개선. 70% 목표는 이 접근으로 못 미쳤다: 표본이 5종목/1개월치뿐이라
+    # 통계적으로 약하고, 애초에 PER/PBR/영업이익률 같은 펀더멘털 신호는 2주 단기 가격 방향과
+    # 상관관계가 약함(corr=0.139) — 방향성 자체는 맞는 편(BUY 평균 +6.1% > HOLD -2.4% >
+    # SELL -3.9%)이라 컷오프를 여기서 더 밀어붙이면 65개 표본 노이즈에 과적합될 뿐이라 멈춤.
+    # 데이터(종목 수/기간)가 늘면 스크립트 재실행해서 재튜닝할 것.
+    if total_score >= 0.40:
         opinion = "BUY"
         qualitative_signal = "지표들이 양호한 편입니다"
     elif total_score >= 0.15:
         opinion = "HOLD"
         qualitative_signal = "중립적 관망 구간입니다"
-    elif total_score >= -0.30:
+    elif total_score >= -0.10:
         opinion = "HOLD"
         if operating_margin is not None and operating_margin >= 30.0:
             qualitative_signal = "실적은 우수하나 단기 주가 변동성 혼조 구간입니다"
@@ -206,6 +214,29 @@ def calculate_stock_opinion(
         qualitative_signal = "부담스러운 구간입니다"
 
     return opinion, qualitative_signal, total_score
+
+
+def _clean_headline_for_summary(title: str, max_len: int = 35) -> tuple[str, bool]:
+    """헤드라인을 문장에 '...'로 감싸 넣기 전에 다듬는다.
+    - 헤드라인 자체가 이미 따옴표로 시작하는 경우(예: "美, ...")가 흔해서, 그대로 감싸면
+      따옴표가 겹쳐 보인다("'\"美, ...'"). 양끝 따옴표류를 벗겨내고 우리 쪽에서 한 번만 감쌈.
+    - 글자 수로 그냥 자르면 "…한화오션 6% 강세[" 처럼 대괄호 태그 중간이 잘려 어색하다.
+      자른 지점이 안 닫힌 괄호/대괄호 안이면 그 괄호 시작 지점 이전까지만 남긴다.
+    반환: (다듬어진 텍스트, 실제로 잘렸는지)
+    """
+    # 헤드라인 안에 있는 따옴표는 어디 있든(맨 앞뿐 아니라 중간의 짝 닫는 따옴표까지)
+    # 전부 없앤다 — 문장 전체를 우리 쪽 작은따옴표로 한 번 더 감싸므로, 안쪽 따옴표가
+    # 남아있으면 어디서든 겹쳐 보인다.
+    stripped = re.sub(r"['\"“”‘’]", "", title.strip())
+    was_truncated = len(stripped) > max_len
+    truncated = stripped[:max_len]
+    for open_ch, close_ch in (("[", "]"), ("(", ")"), ("【", "】")):
+        last_open = truncated.rfind(open_ch)
+        if last_open != -1 and close_ch not in truncated[last_open:]:
+            truncated = truncated[:last_open]
+            was_truncated = True
+    truncated = truncated.rstrip(" .,~-–—…")
+    return truncated, was_truncated
 
 
 def generate_investment_summary(
@@ -228,7 +259,9 @@ def generate_investment_summary(
     if news_items and len(news_items) > 0:
         first_title = str(news_items[0].get("title", "") if isinstance(news_items[0], dict) else getattr(news_items[0], "title", "")).strip()
         if first_title:
-            news_summary = f"최근 이슈로는 '{first_title[:35]}...' 등이 확인되며, "
+            clean_title, was_truncated = _clean_headline_for_summary(first_title)
+            if clean_title:
+                news_summary = f"최근 이슈로는 '{clean_title}{'...' if was_truncated else ''}' 등이 확인되며, "
 
     if opinion == "BUY":
         summary = f"{price_str}{opm_str}수익성 및 주요 지표 흐름이 우수하여 {qualitative_signal}. {news_summary}업종 내 상대적 퀀트 매력도가 유지되는 상태입니다."

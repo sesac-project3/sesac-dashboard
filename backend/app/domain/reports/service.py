@@ -242,11 +242,14 @@ class ReportService:
         }
 
         stock_name = stock.name if stock else ""
-        naver_items = fetch_naver_news_for_stock(stock_name, limit=3)
+        # limit을 10으로 늘려서(화면에 보여줄 3개보다 크게) "1. 투자 판단 요약"의 뉴스
+        # 신호(아래 news_sentiment_counts)를 실시간 네이버 뉴스 표본으로 계산할 수 있게
+        # 한다 — 기사 3개짜리 표본으로 긍정/부정 비율을 내면 노이즈가 너무 크다.
+        naver_items = fetch_naver_news_for_stock(stock_name, limit=10)
 
         latest_news = []
         if naver_items:
-            for idx, item in enumerate(naver_items, 1):
+            for idx, item in enumerate(naver_items[:3], 1):
                 latest_news.append(
                     NewsItem(
                         id=idx,
@@ -319,6 +322,19 @@ class ReportService:
             {"stock_id": stock_id},
         ).fetchall()
         news_sent_counts = {str(r.sentiment).lower(): int(r.cnt) for r in news_sent_rows if r.sentiment}
+
+        # "1. 투자 판단 요약"의 뉴스 신호는 실시간 네이버 뉴스(위에서 이미 가져온 naver_items,
+        # 최대 10건)를 우선 쓴다 — DB data_source 집계는 배치로 쌓인 과거 스냅샷이라 "실시간"이
+        # 아니다. 네이버 API가 비어있을 때만(키 미설정/응답 실패) DB 집계로 폴백한다
+        # (기존 latest_news 폴백과 같은 우선순위: 네이버 -> DB).
+        KOREAN_TO_SCORE_KEY = {"긍정": "positive", "부정": "negative", "중립": "neutral"}
+        if naver_items:
+            live_news_sent_counts: dict[str, int] = {}
+            for item in naver_items:
+                key = KOREAN_TO_SCORE_KEY.get(item["sentiment"])
+                if key:
+                    live_news_sent_counts[key] = live_news_sent_counts.get(key, 0) + 1
+            news_sent_counts = live_news_sent_counts
 
         comm_sent_rows = db.execute(
             text("""

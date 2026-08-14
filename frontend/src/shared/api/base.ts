@@ -32,32 +32,47 @@ base.interceptors.request.use((config) => {
   return config;
 });
 
+// REST 401 인터셉터와 StockWebSocketProvider(소켓이 1008 "invalid/expired access token"으로
+// 닫혔을 때) 양쪽에서 같은 갱신 절차를 타야 해서 함수로 뽑음.
+export async function refreshAccessToken(): Promise<string> {
+  const refreshToken = typeof window === "undefined" ? null : localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refreshToken) {
+    clearTokens();
+    throw new ApiError("리프레시 토큰이 없습니다.");
+  }
+  try {
+    // 백엔드는 모든 응답을 ApiResponse 봉투({ data: ... })로 감싼다
+    const refreshResponse = await axios.post<ApiEnvelope<{ accessToken: string; refreshToken: string }>>(
+      `${API_BASE_URL}/auth/refresh`,
+      { refreshToken },
+    );
+    const data = unwrapApiResponse(refreshResponse);
+    if (!data) throw new ApiError("토큰 갱신 응답이 비어 있습니다.", refreshResponse.status);
+    setTokens(data.accessToken, data.refreshToken);
+    return data.accessToken;
+  } catch (refreshError) {
+    clearTokens();
+    throw refreshError;
+  }
+}
+
 base.interceptors.response.use(
   (response) => response,
   async (error) => {
     const original = error.config as RetryableRequestConfig | undefined;
-    const refreshToken =
-      typeof window === "undefined" ? null : localStorage.getItem(REFRESH_TOKEN_KEY);
-
-    if (error.response?.status !== 401 || !original || original._retry || !refreshToken) {
+    const hasRefreshToken =
+      typeof window !== "undefined" && !!localStorage.getItem(REFRESH_TOKEN_KEY);
+    if (error.response?.status !== 401 || !original || original._retry || !hasRefreshToken) {
       if (error.response?.status === 401) clearTokens();
       return Promise.reject(error);
     }
 
     original._retry = true;
     try {
-      // 백엔드는 모든 응답을 ApiResponse 봉투({ data: ... })로 감싼다
-      const refreshResponse = await axios.post<ApiEnvelope<{ accessToken: string; refreshToken: string }>>(
-        `${API_BASE_URL}/auth/refresh`,
-        { refreshToken },
-      );
-      const data = unwrapApiResponse(refreshResponse);
-      if (!data) throw new ApiError("토큰 갱신 응답이 비어 있습니다.", refreshResponse.status);
-      setTokens(data.accessToken, data.refreshToken);
-      original.headers.set("Authorization", `Bearer ${data.accessToken}`);
+      const accessToken = await refreshAccessToken();
+      original.headers.set("Authorization", `Bearer ${accessToken}`);
       return base(original);
     } catch (refreshError) {
-      clearTokens();
       return Promise.reject(refreshError);
     }
   },

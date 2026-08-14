@@ -23,7 +23,7 @@ export default function MarketIndexCarousel({ indices }: MarketIndexCarouselProp
           >
             {/* 타이틀 및 지수 수치 */}
             <div>
-              <p className="text-[12px] font-medium text-caption">{idx.title}</p>
+              <p className="text-[13px] font-medium text-caption">{idx.title}</p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-[28px] font-bold tracking-tight text-heading">
                   {idx.value.toLocaleString()}

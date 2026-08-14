@@ -17,7 +17,7 @@ const SLIDES = [
             key={row.label}
             className="flex items-center justify-between rounded-full bg-white px-4 py-2 shadow-card"
           >
-            <span className="text-[12px] text-caption">{row.label}</span>
+            <span className="text-[13px] text-caption">{row.label}</span>
             <span className={`text-[14px] font-bold ${row.up ? "text-market-up" : "text-market-down"}`}>
               {row.up ? <ArrowUp className="mr-1 inline h-3 w-3" aria-hidden="true" /> : <ArrowDown className="mr-1 inline h-3 w-3" aria-hidden="true" />} {row.value}
             </span>
@@ -31,11 +31,11 @@ const SLIDES = [
     description: "긍정·부정 뉴스를 숏폼으로 빠르게, AI 인사이트까지 함께.",
     illustration: (
       <div className="relative mx-auto flex h-full w-[120px] flex-col justify-between rounded-2xl bg-heading p-3 text-white shadow-elevated">
-        <span className="self-end rounded-full bg-white/20 px-1.5 py-0.5 text-[10px]">
+        <span className="self-end rounded-full bg-white/20 px-1.5 py-0.5 text-[8px]">
           <Sparkles className="mr-0.5 inline h-2 w-2" aria-hidden="true" /> AI INSIGHT
         </span>
         <Play className="h-8 w-8 self-center fill-current" aria-hidden="true" />
-        <span className="text-[12px] leading-snug">
+        <span className="text-[11px] leading-snug">
           한화오션, 대형
           <br />
           수주로 강세 전환
@@ -48,7 +48,7 @@ const SLIDES = [
     description: "매수·중립·매도 판단과 그 이유를 근거와 함께 보여드려요.",
     illustration: (
       <div className="w-full rounded-2xl bg-white p-4 shadow-card">
-        <span className="rounded-full bg-market-up/15 px-3 py-1 text-[12px] font-bold text-market-up">
+        <span className="rounded-full bg-market-up/15 px-3 py-1 text-[13px] font-bold text-market-up">
           매수
         </span>
         <div className="mt-3 flex flex-col gap-2">
@@ -109,7 +109,7 @@ export default function OnboardingCarousel() {
               {slide.illustration}
             </div>
             <div className="text-center">
-              <h1 className="text-[24px] leading-[1.3] font-bold whitespace-pre-line text-heading">
+              <h1 className="text-[22px] leading-[1.3] font-bold whitespace-pre-line text-heading">
                 {slide.headline}
               </h1>
               <p className="mt-3 text-[14px] leading-[1.5] text-caption">{slide.description}</p>

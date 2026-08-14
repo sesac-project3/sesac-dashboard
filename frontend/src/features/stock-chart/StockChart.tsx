@@ -62,7 +62,7 @@ const formatTooltipTimestamp = (timestamp: string, interval: CandleInterval) => 
   return `${date.getFullYear()}.${month}.${day}.`;
 };
 
-const createExtremaLabelsPlugin = (candles: Candle[], primaryColor: string): Plugin<"line"> => ({
+const createExtremaLabelsPlugin = (candles: Candle[]): Plugin<"line"> => ({
   id: "extremaLabels",
   afterDatasetsDraw: (chart) => {
     const dataset = chart.getDatasetMeta(0);
@@ -74,7 +74,7 @@ const createExtremaLabelsPlugin = (candles: Candle[], primaryColor: string): Plu
     const context = chart.ctx;
 
     context.save();
-    context.fillStyle = primaryColor;
+    context.fillStyle = "#542be9";
     context.font = "12px Pretendard, sans-serif";
     context.textAlign = "center";
     context.textBaseline = "middle";
@@ -159,16 +159,7 @@ export default function StockChart({
   const minClose = Math.min(...closePrices);
   const maxIndex = closePrices.lastIndexOf(maxClose);
   const minIndex = closePrices.lastIndexOf(minClose);
-  const cssColor = (name: string, fallback: string) =>
-    getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
-  const primaryColor = cssColor("--color-primary", "#542be9");
-  const neutral950 = cssColor("--color-neutral-950", "#191f28");
-  const neutral300 = cssColor("--color-neutral-300", "#b0b8c1");
-  const neutral800 = cssColor("--color-neutral-800", "#333d4b");
-  const neutral200 = cssColor("--color-neutral-200", "#e5e8eb");
-  const marketUp = cssColor("--color-market-up", "#ef4444");
-  const marketDown = cssColor("--color-market-down", "#3b82f6");
-  const extremaLabelsPlugin = createExtremaLabelsPlugin(candles, primaryColor);
+  const extremaLabelsPlugin = createExtremaLabelsPlugin(candles);
   const externalTooltip = ({
     chart,
     tooltip,
@@ -181,7 +172,7 @@ export default function StockChart({
       element = document.createElement("div");
       element.className = "chart-tooltip";
       element.style.cssText =
-        `position:absolute;transform:translate(12px,-50%);padding:12px;background:rgba(255,255,255,.75);border:1px solid ${neutral200};border-radius:8px;box-shadow:0 4px 12px rgba(17,24,39,.08);pointer-events:none;white-space:nowrap;transition:opacity .1s`;
+        "position:absolute;transform:translate(12px,-50%);padding:12px;background:rgba(255,255,255,.75);border:1px solid #e5e7eb;border-radius:8px;box-shadow:0 4px 12px rgba(17,24,39,.08);pointer-events:none;white-space:nowrap;transition:opacity .1s";
       chart.canvas.parentNode?.appendChild(element);
     }
 
@@ -196,15 +187,15 @@ export default function StockChart({
     element.replaceChildren();
     const title = document.createElement("div");
     title.textContent = formatTooltipTimestamp(String(tooltip.title[0] ?? ""), interval);
-    title.style.cssText = `color:${neutral800};font-weight:700;font-size:12px;margin-bottom:8px`;
+    title.style.cssText = "color:#374151;font-weight:700;font-size:12px;margin-bottom:8px";
     element.appendChild(title);
 
     for (const [label, value, color] of [
-      ["시가", candle.openPrice, neutral950],
-      ["고가", candle.highPrice, marketUp],
-      ["저가", candle.lowPrice, marketDown],
-      ["종가", candle.closePrice, neutral950],
-      ["거래량", candle.volume, neutral300],
+      ["시가", candle.openPrice, "#111827"],
+      ["고가", candle.highPrice, "#ef4444"],
+      ["저가", candle.lowPrice, "#3b82f6"],
+      ["종가", candle.closePrice, "#111827"],
+      ["거래량", candle.volume, "#9ca3af"],
     ] as const) {
       const row = document.createElement("div");
       row.style.cssText = "display:flex;justify-content:space-between;gap:20px;font-size:12px";
@@ -234,12 +225,12 @@ export default function StockChart({
       {
         label: "종가",
         data: candles.map((candle) => candle.closePrice),
-        borderColor: primaryColor,
+        borderColor: "#542be9",
         borderWidth: 2,
         pointRadius: (context: { dataIndex: number }) =>
           context.dataIndex === maxIndex || context.dataIndex === minIndex ? 3 : 0,
-        pointBackgroundColor: primaryColor,
-        pointBorderColor: primaryColor,
+        pointBackgroundColor: "#542be9",
+        pointBorderColor: "#542be9",
         pointBorderWidth: 0,
         pointHitRadius: 12,
         tension: 0.25,
