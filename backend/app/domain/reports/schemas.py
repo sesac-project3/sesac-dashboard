@@ -4,10 +4,11 @@ from pydantic import BaseModel
 
 class PeerComparisonRow(BaseModel):
     name: str
-    per: float
-    pbr: float
-    roe: float
+    per: float | None = None
+    pbr: float | None = None
+    roe: float | None = None
     operating_margin: float | None = None
+
 
 
 

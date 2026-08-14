@@ -13,6 +13,8 @@ from app.domain.reports.scoring import (
     generate_investment_summary,
     build_comprehensive_reasons,
 )
+from app.domain.reports.peer_service import get_peer_comparison_data
+
 
 
 def extract_publisher(url: str | None) -> str:
@@ -329,7 +331,7 @@ class ReportService:
         ).fetchall()
         comm_sent_counts = {str(r.sentiment).lower(): int(r.cnt) for r in comm_sent_rows if r.sentiment}
 
-        peer_rows = PEER_GROUPS.get(stock_code, [])
+        peer_rows = get_peer_comparison_data(db, stock_code)
         target_peer = peer_rows[0] if peer_rows else None
         per_val = target_peer.per if target_peer else None
         pbr_val = target_peer.pbr if target_peer else None
