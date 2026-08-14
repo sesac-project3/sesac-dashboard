@@ -13,34 +13,18 @@
   --color-market-down: #3b82f6;
   --color-positive: #2dc98e;
   --color-danger: #ef4444;
-  --color-warning: #ff9500;
-  --color-info: #1b64da;
-  --color-surface-info: #e8f3ff;
-  --color-surface-danger: #fee9e8;
-  --color-surface-warning: #fff5e6;
-  --color-kakao: #fee500;
-  --color-chart-volume: #9ca3af;
-  --color-chart-tooltip-title: #374151;
-  --color-chart-price: #111827;
+  --color-info: #3b82f6;
 
-  /* Neutral — DESIGN_SPEC.md §3.1 */
-  --color-neutral-950: #191f28;
-  --color-neutral-800: #333d4b;
-  --color-neutral-700: #4e5968;
-  --color-neutral-500: #8b95a1;
-  --color-neutral-300: #b0b8c1;
-  --color-neutral-200: #e5e8eb;
-  --color-neutral-100: #f2f4f6;
-  --color-neutral-50: #f8f9fa;
+  /* Neutral */
+  --color-ink: #111111;
+  --color-heading: #1f2435;
+  --color-heading-alt: #20253a;
+  --color-caption: #8b90a0;
+  --color-caption-alt: #9aa1b4;
+  --color-surface: #f5f5f7;
   --color-white: #ffffff;
-  --color-ink: var(--color-neutral-950);
-  --color-heading: var(--color-neutral-950);
-  --color-heading-alt: var(--color-neutral-950);
-  --color-caption: var(--color-neutral-500);
-  --color-caption-alt: var(--color-neutral-500);
-  --color-surface: var(--color-neutral-50);
-  --color-border: var(--color-neutral-200);
-  --color-border-soft: var(--color-neutral-200);
+  --color-border: #e5e7eb;
+  --color-border-soft: #e7e8f2;
 
   --background: var(--color-white);
   --foreground: var(--color-heading);
@@ -57,23 +41,7 @@
   --color-market-down: var(--color-market-down);
   --color-positive: var(--color-positive);
   --color-danger: var(--color-danger);
-  --color-warning: var(--color-warning);
   --color-info: var(--color-info);
-  --color-surface-info: var(--color-surface-info);
-  --color-surface-danger: var(--color-surface-danger);
-  --color-surface-warning: var(--color-surface-warning);
-  --color-kakao: var(--color-kakao);
-  --color-chart-volume: var(--color-chart-volume);
-  --color-chart-tooltip-title: var(--color-chart-tooltip-title);
-  --color-chart-price: var(--color-chart-price);
-  --color-neutral-950: var(--color-neutral-950);
-  --color-neutral-800: var(--color-neutral-800);
-  --color-neutral-700: var(--color-neutral-700);
-  --color-neutral-500: var(--color-neutral-500);
-  --color-neutral-300: var(--color-neutral-300);
-  --color-neutral-200: var(--color-neutral-200);
-  --color-neutral-100: var(--color-neutral-100);
-  --color-neutral-50: var(--color-neutral-50);
   --color-ink: var(--color-ink);
   --color-heading: var(--color-heading);
   --color-heading-alt: var(--color-heading-alt);

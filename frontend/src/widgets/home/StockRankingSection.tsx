@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Heart, RefreshCw } from "lucide-react";
 import Card from "@/shared/ui/Card";
-import Button from "@/shared/ui/Button";
 import StockLogo from "@/shared/ui/StockLogo";
 import { getAccessToken } from "@/shared/api/base";
 import { getWatchlist, toggleWatchlist } from "@/shared/api/watchlists";
@@ -108,24 +107,23 @@ export default function StockRankingSection({
       <div className="flex items-center justify-between">
         <h3 className="text-[18px] font-bold text-heading">국내주식 랭킹</h3>
         <div className="flex items-center gap-1.5">
-          <span className="text-[12px] font-medium text-caption">{timestamp}</span>
-          <Button
-            variant="icon"
+          <span className="text-[11px] font-medium text-caption">{timestamp}</span>
+          <button
             onClick={onRefresh}
             disabled={refreshing}
             aria-label="새로고침"
             className="p-0.5 text-caption transition-transform hover:text-heading disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden="true" />
-          </Button>
+          </button>
         </div>
       </div>
 
       {isFavoritesLoading && (
-        <p className="text-[12px] text-caption">관심종목을 불러오는 중...</p>
+        <p className="text-[11px] text-caption">관심종목을 불러오는 중...</p>
       )}
       {hasFavoritesError && (
-        <p className="text-[12px] text-market-down">관심종목을 불러오지 못했어요.</p>
+        <p className="text-[11px] text-market-down">관심종목을 불러오지 못했어요.</p>
       )}
 
       {/* 가로 스크롤 탭 버튼 */}
@@ -133,18 +131,17 @@ export default function StockRankingSection({
         {TABS.map((tab) => {
           const isActive = tab === activeTab;
           return (
-            <Button
-              variant="text"
+            <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`shrink-0 cursor-pointer rounded-full px-3.5 py-1.5 text-[14px] font-semibold transition-all ${
+              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[13px] font-semibold transition-all ${
                 isActive
                   ? "bg-heading text-white shadow-sm dark:bg-white dark:text-heading"
-                  : "bg-neutral-100 text-caption hover:text-heading"
+                  : "bg-gray-100 text-caption hover:text-heading dark:bg-gray-800"
               }`}
             >
               {tab}
-            </Button>
+            </button>
           );
         })}
       </div>
@@ -159,7 +156,7 @@ export default function StockRankingSection({
             <Link
               key={stock.code}
               href={`/stock/${stock.code}`}
-              className="flex items-center justify-between py-3.5 transition-colors hover:bg-neutral-50/50"
+              className="flex items-center justify-between py-3.5 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
             >
               {/* 좌측: 로고 + 종목명 */}
               <div className="flex items-center gap-3">
@@ -170,7 +167,7 @@ export default function StockRankingSection({
               {/* 우측: 현재가 + 등락률 + 관심종목 하트 */}
               <div className="flex items-center gap-3 text-right">
                 <div>
-                  <p className="text-[16px] font-bold text-heading">
+                  <p className="text-[15px] font-bold text-heading">
                     {stock.price.toLocaleString()}원
                   </p>
                   <p
@@ -184,8 +181,7 @@ export default function StockRankingSection({
                   </p>
                 </div>
 
-                <Button
-                  variant="icon"
+                <button
                   onClick={(e) => toggleFavorite(stock.code, e)}
                   aria-label={isFav ? "관심종목 해제" : "관심종목 등록"}
                   className="p-1 transition-transform active:scale-90"
@@ -194,9 +190,9 @@ export default function StockRankingSection({
                     size={20}
                     strokeWidth={1.8}
                     fill={isFav ? "currentColor" : "none"}
-                    className={isFav ? "text-danger" : "text-neutral-300"}
+                    className={isFav ? "text-red-500" : "text-gray-400 dark:text-gray-500"}
                   />
-                </Button>
+                </button>
               </div>
             </Link>
           );

@@ -40,7 +40,7 @@ export default function BottomTabBar() {
             }`}
           >
             <Icon className="h-6 w-6" />
-            <span className={`text-[12px] ${active ? "font-semibold" : ""}`}>{label}</span>
+            <span className={`text-[11px] ${active ? "font-semibold" : ""}`}>{label}</span>
           </Link>
         );
       })}

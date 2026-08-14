@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Card from "@/shared/ui/Card";
-import Button from "@/shared/ui/Button";
 import PageContainer from "@/shared/ui/PageContainer";
 // import HomeLoadingScreen from "@/widgets/home/HomeLoadingScreen"; // ponytail: 로딩화면 로직과 같이 임시 비활성화
 import MarketIndexCarousel from "@/widgets/home/MarketIndexCarousel";
@@ -152,12 +151,12 @@ export default function MarketDashboard() {
             <br />
             잠시 후 다시 시도해주세요.
           </p>
-          <Button
+          <button
             onClick={load}
-            variant="primary"
+            className="rounded-sm bg-primary px-5 py-2.5 text-[14px] font-medium text-white active:scale-[0.98]"
           >
             다시 시도
-          </Button>
+          </button>
         </div>
       </PageContainer>
     );

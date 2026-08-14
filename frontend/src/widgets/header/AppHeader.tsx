@@ -2,7 +2,6 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import Button from "@/shared/ui/Button";
 
 // DESIGN_SPEC.md §9 Global App Shell / Header — 56px, bottom border, center title.
 export default function AppHeader() {
@@ -15,14 +14,14 @@ export default function AppHeader() {
       style={{ paddingTop: "env(safe-area-inset-top)" }}
     >
       {isStockDetail && (
-        <Button
-          variant="icon"
+        <button
+          type="button"
           aria-label="뒤로가기"
-          className="absolute left-4 text-caption"
+          className="absolute left-4 cursor-pointer text-caption"
           onClick={() => router.back()}
         >
           <ChevronLeft aria-hidden="true" size={24} strokeWidth={2} />
-        </Button>
+        </button>
       )}
       {/* eslint-disable-next-line @next/next/no-img-element -- 헤더 로고 1개뿐, next/image 불필요 */}
       <img

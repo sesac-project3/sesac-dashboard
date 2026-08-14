@@ -5,7 +5,6 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import type { StockReport } from "@/entities/report/types";
 import AiReportDetailModal from "./AiReportDetailModal";
 import Card from "@/shared/ui/Card";
-import Button from "@/shared/ui/Button";
 import useStockSubscription from "@/features/stock-chart/useStockSubscription";
 
 interface StockReportSummaryWidgetProps {
@@ -50,26 +49,26 @@ export default function StockReportSummaryWidget({
 
   const judgementBadgeStyle =
     report?.judgement === "BUY" || report?.judgement === "매수"
-      ? "text-danger bg-surface-danger"
+      ? "text-[#F04452] bg-[#FEE9E8]"
       : report?.judgement === "SELL" || report?.judgement === "매도"
-      ? "text-info bg-surface-info"
-      : "text-warning bg-surface-warning";
+      ? "text-[#3182F6] bg-[#E8F3FF]"
+      : "text-[#FF9500] bg-[#FFF5E6]";
 
   return (
     <>
-      <Card className="flex flex-col gap-4 p-5 bg-white border border-neutral-200/80 text-neutral-950 rounded-2xl shadow-sm">
+      <Card className="flex flex-col gap-4 p-5 bg-white border border-slate-200/80 text-[#191F28] rounded-2xl shadow-sm">
         {/* 카드 헤더 */}
-        <div className="flex items-center justify-between border-b border-neutral-100 pb-3">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-info" />
-            <h3 className="font-bold text-neutral-950 text-base">AI 분석 리포트 요약</h3>
+            <Sparkles className="h-5 w-5 text-[#3182F6]" />
+            <h3 className="font-bold text-[#191F28] text-base">AI 분석 리포트 요약</h3>
           </div>
-          <span className="text-[12px] text-neutral-500">Updated 방금 전</span>
+          <span className="text-[11px] text-[#8B95A1]">Updated 방금 전</span>
         </div>
 
         {/* 카드 본문 */}
         {reportError ? (
-          <p className="rounded-xl bg-surface-danger p-3.5 text-xs text-danger">
+          <p className="rounded-xl bg-[#FFF5F5] p-3.5 text-xs text-[#D14343]">
             리포트를 불러오지 못했어요. 잠시 후 다시 시도해주세요.
           </p>
         ) : report ? (
@@ -78,13 +77,13 @@ export default function StockReportSummaryWidget({
               <span className={`px-3 py-1 text-xs font-extrabold rounded-lg ${judgementBadgeStyle}`}>
                 {judgementText}
               </span>
-              <span className="text-xs font-bold text-neutral-800">
+              <span className="text-xs font-bold text-[#333D4B]">
                 {report.qualitativeSignal ?? "지표 분석 완료"}
               </span>
             </div>
 
             {report.investmentSummary && (
-              <p className="text-xs leading-relaxed text-neutral-700 bg-neutral-100 p-3.5 rounded-xl font-normal">
+              <p className="text-xs leading-relaxed text-[#4E5968] bg-[#F2F4F6] p-3.5 rounded-xl font-normal">
                 {report.investmentSummary}
               </p>
             )}
@@ -92,23 +91,23 @@ export default function StockReportSummaryWidget({
         ) : (
           <div className="space-y-3">
             {PREPARING_ITEMS.map((item, idx) => (
-              <div key={idx} className="rounded-xl bg-neutral-50 p-3.5 space-y-1 border border-neutral-100">
-                <h4 className="text-xs font-bold text-neutral-800">{item.title}</h4>
-                <p className="text-[12px] text-neutral-500">{item.description}</p>
+              <div key={idx} className="rounded-xl bg-[#F9FAFB] p-3.5 space-y-1 border border-slate-100">
+                <h4 className="text-xs font-bold text-[#333D4B]">{item.title}</h4>
+                <p className="text-[11px] text-[#6B7684]">{item.description}</p>
               </div>
             ))}
           </div>
         )}
 
         {/* 리포트 전체 보기 CTA 버튼 — full width, pill, height 52px, primary indigo(#542BE9) fill */}
-        <Button
-          variant="pill"
+        <button
+          type="button"
           onClick={() => setIsModalOpen(true)}
-          className="h-[52px] w-full !border-primary !bg-primary !text-white"
+          className="flex h-[52px] w-full items-center justify-center gap-1 rounded-full bg-primary text-[15px] font-medium text-white transition active:scale-[0.98]"
         >
           <span>리포트 전체 보기</span>
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Button>
+        </button>
       </Card>
 
       {/* AI 리포트 상세 모달 */}
