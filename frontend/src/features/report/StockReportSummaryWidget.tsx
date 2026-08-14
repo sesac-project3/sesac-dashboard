@@ -10,6 +10,7 @@ interface StockReportSummaryWidgetProps {
   report: StockReport | null;
   stockName: string;
   stockCode: string;
+  reportError?: boolean;
 }
 
 const PREPARING_ITEMS = [
@@ -31,6 +32,7 @@ export default function StockReportSummaryWidget({
   report,
   stockName,
   stockCode,
+  reportError = false,
 }: StockReportSummaryWidgetProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -61,7 +63,11 @@ export default function StockReportSummaryWidget({
         </div>
 
         {/* 카드 본문 */}
-        {report ? (
+        {reportError ? (
+          <p className="rounded-xl bg-[#FFF5F5] p-3.5 text-xs text-[#D14343]">
+            리포트를 불러오지 못했어요. 잠시 후 다시 시도해주세요.
+          </p>
+        ) : report ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className={`px-3 py-1 text-xs font-extrabold rounded-lg ${judgementBadgeStyle}`}>

@@ -1,30 +1,27 @@
 import StockLiveSection from "@/features/stock-quote/StockLiveSection";
-import { API_BASE_URL } from "@/shared/config/env";
 import type { StockReport } from "@/entities/report/types";
 import type { Stock } from "@/entities/stock/types";
 import PageContainer from "@/shared/ui/PageContainer";
 import WeeklySentimentWeather from "@/widgets/stock-weather/WeeklySentimentWeather";
 import StockReportSummaryWidget from "@/features/report/StockReportSummaryWidget";
+import { getStock } from "@/shared/api/stocks";
+import { getStockReport } from "@/shared/api/reports";
 
-async function fetchReport(code: string): Promise<StockReport | null> {
+type FetchResult<T> = { data: T | null; hasError: boolean };
+
+async function fetchReport(code: string): Promise<FetchResult<StockReport>> {
   try {
-    const res = await fetch(`${API_BASE_URL}/reports/${code}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body.data;
+    return { data: await getStockReport(code), hasError: false };
   } catch {
-    return null;
+    return { data: null, hasError: true };
   }
 }
 
-async function fetchStock(code: string): Promise<Stock | null> {
+async function fetchStock(code: string): Promise<FetchResult<Stock>> {
   try {
-    const res = await fetch(`${API_BASE_URL}/stocks/${code}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body.data;
+    return { data: await getStock(code), hasError: false };
   } catch {
-    return null;
+    return { data: null, hasError: true };
   }
 }
 
@@ -34,8 +31,13 @@ export default async function StockReportPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const [report, stock] = await Promise.all([fetchReport(code), fetchStock(code)]);
-  const stockName = stock?.name ?? code;
+  const [reportResult, stockResult] = await Promise.all([fetchReport(code), fetchStock(code)]);
+  if (stockResult.hasError || !stockResult.data) {
+    throw new Error("종목 정보를 불러오지 못했습니다.");
+  }
+
+  const stock = stockResult.data;
+  const stockName = stock.name;
 
   return (
     <PageContainer>
@@ -50,7 +52,8 @@ export default async function StockReportPage({
 
         <div>
           <StockReportSummaryWidget
-            report={report}
+            report={reportResult.data}
+            reportError={reportResult.hasError}
             stockName={stockName}
             stockCode={code}
           />

@@ -1,4 +1,4 @@
-import axios, { type InternalAxiosRequestConfig } from "axios";
+import axios, { type AxiosResponse, type InternalAxiosRequestConfig } from "axios";
 import { API_BASE_URL } from "@/shared/config/env";
 
 // ponytail: localStorage 토큰 저장 방식은 참고 프로젝트(invest/frontend) convention을 그대로 따름.
@@ -44,12 +44,14 @@ base.interceptors.response.use(
     original._retry = true;
     try {
       // 백엔드는 모든 응답을 ApiResponse 봉투({ data: ... })로 감싼다
-      const { data } = await axios.post<ApiEnvelope<{ accessToken: string; refreshToken: string }>>(
+      const refreshResponse = await axios.post<ApiEnvelope<{ accessToken: string; refreshToken: string }>>(
         `${API_BASE_URL}/auth/refresh`,
         { refreshToken },
       );
-      setTokens(data.data!.accessToken, data.data!.refreshToken);
-      original.headers.set("Authorization", `Bearer ${data.data!.accessToken}`);
+      const data = unwrapApiResponse(refreshResponse);
+      if (!data) throw new ApiError("토큰 갱신 응답이 비어 있습니다.", refreshResponse.status);
+      setTokens(data.accessToken, data.refreshToken);
+      original.headers.set("Authorization", `Bearer ${data.accessToken}`);
       return base(original);
     } catch (refreshError) {
       clearTokens();
@@ -66,6 +68,25 @@ export interface ApiEnvelope<T> {
   message: string;
   data: T | null;
   timestamp: string;
+}
+
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public readonly status?: number,
+    public readonly code?: string,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export function unwrapApiResponse<T>(response: AxiosResponse<ApiEnvelope<T>>): T {
+  const body = response.data;
+  if (!body.success) {
+    throw new ApiError(body.message, response.status, body.code);
+  }
+  return body.data as T;
 }
 
 export default base;

@@ -3,8 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, CloudRain, CloudSun, Sun } from "lucide-react";
 import Card from "@/shared/ui/Card";
-import { API_BASE_URL } from "@/shared/config/env";
-import type { DailySentimentItem } from "@/shared/api/stocks";
+import { getWeeklyStockSentiments, type DailySentimentItem } from "@/shared/api/stocks";
 
 const WINDOW = 7; // items visible at once
 const STEP = 7;  // items to jump per button click
@@ -12,6 +11,7 @@ const STEP = 7;  // items to jump per button click
 export default function WeeklySentimentWeather({ stockCode }: { stockCode: string }) {
   const [items, setItems] = useState<DailySentimentItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasError, setHasError] = useState(false);
   // startIndex: index of the leftmost visible item
   const [startIndex, setStartIndex] = useState(0);
 
@@ -25,19 +25,17 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
     let isMounted = true;
     async function loadData() {
       try {
-        const res = await fetch(`${API_BASE_URL}/stocks/${stockCode}/sentiments/weekly`, {
-          cache: "no-store",
-        });
-        if (!res.ok) return;
-        const body = await res.json();
-        const list: DailySentimentItem[] = body.data?.weeklySentiments ?? [];
+        const data = await getWeeklyStockSentiments(stockCode);
+        const list: DailySentimentItem[] = data?.weeklySentiments ?? [];
         if (isMounted) {
           setItems(list);
+          setHasError(false);
           // Start so that yesterday (last item) is at the rightmost position
           setStartIndex(Math.max(0, list.length - WINDOW));
         }
       } catch (err) {
         console.error("Failed to load sentiment weather", err);
+        if (isMounted) setHasError(true);
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -46,7 +44,19 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
     return () => { isMounted = false; };
   }, [stockCode]);
 
-  if (isLoading || items.length === 0) return null;
+  if (isLoading) {
+    return <div className="h-[180px] animate-pulse rounded-lg bg-surface" aria-label="주간 뉴스 기상도 로딩 중" />;
+  }
+
+  if (hasError) {
+    return (
+      <Card className="flex min-h-[180px] items-center justify-center text-center text-[13px] text-caption">
+        주간 뉴스 기상도를 불러오지 못했어요.
+      </Card>
+    );
+  }
+
+  if (items.length === 0) return null;
 
   const canGoPrev = startIndex > 0;
   const canGoNext = startIndex < items.length - WINDOW;
