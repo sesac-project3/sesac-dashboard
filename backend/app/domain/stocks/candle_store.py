@@ -8,7 +8,10 @@ from app.core.config import settings
 
 MARKET_CANDLE_CHANNEL_PREFIX = "market:candle:"
 MARKET_CANDLE_CHANNEL_PATTERN = f"{MARKET_CANDLE_CHANNEL_PREFIX}*"
+MARKET_INDEX_CHANNEL_PREFIX = "market:index:"
+MARKET_INDEX_CHANNEL_PATTERN = f"{MARKET_INDEX_CHANNEL_PREFIX}*"
 MARKET_CANDLE_SNAPSHOT_PREFIX = "market:candle:state:"
+MARKET_INDEX_SNAPSHOT_PREFIX = "market:index:state:"
 MARKET_QUOTE_SNAPSHOT_PREFIX = "market:quote:state:"
 MARKET_CANDLE_SNAPSHOT_TTL_SECONDS = 2 * 24 * 60 * 60
 MARKET_MINUTE_CANDLE_PREFIX = "market:minute-candles:"
@@ -51,6 +54,29 @@ async def get_quote_snapshot(stock_code: str) -> dict[str, object] | None:
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     try:
         payload = await redis.get(f"{MARKET_QUOTE_SNAPSHOT_PREFIX}{stock_code}")
+        return json.loads(payload) if payload else None
+    finally:
+        await redis.aclose()
+
+
+async def publish_index(index_code: str, message: dict[str, object]) -> None:
+    payload = json.dumps(message, ensure_ascii=False)
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        await redis.set(
+            f"{MARKET_INDEX_SNAPSHOT_PREFIX}{index_code}",
+            payload,
+            ex=MARKET_CANDLE_SNAPSHOT_TTL_SECONDS,
+        )
+        await redis.publish(f"{MARKET_INDEX_CHANNEL_PREFIX}{index_code}", payload)
+    finally:
+        await redis.aclose()
+
+
+async def get_index_snapshot(index_code: str) -> dict[str, object] | None:
+    redis = Redis.from_url(settings.redis_url, decode_responses=True)
+    try:
+        payload = await redis.get(f"{MARKET_INDEX_SNAPSHOT_PREFIX}{index_code}")
         return json.loads(payload) if payload else None
     finally:
         await redis.aclose()
@@ -107,19 +133,24 @@ async def get_minute_candle_messages(
 async def subscribe_candle_events(
     stop_event: asyncio.Event,
     broadcast: Callable[[str, dict[str, object]], Awaitable[None]],
+    broadcast_index: Callable[[str, dict[str, object]], Awaitable[None]] | None = None,
 ) -> None:
     redis = Redis.from_url(settings.redis_url, decode_responses=True)
     pubsub = redis.pubsub()
-    await pubsub.psubscribe(MARKET_CANDLE_CHANNEL_PATTERN)
+    await pubsub.psubscribe(MARKET_CANDLE_CHANNEL_PATTERN, MARKET_INDEX_CHANNEL_PATTERN)
     try:
         while not stop_event.is_set():
             message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
             if not message:
                 continue
             channel = str(message["channel"])
-            stock_code = channel.removeprefix(MARKET_CANDLE_CHANNEL_PREFIX)
-            await broadcast(stock_code, json.loads(message["data"]))
+            payload = json.loads(message["data"])
+            if channel.startswith(MARKET_INDEX_CHANNEL_PREFIX):
+                if broadcast_index is not None:
+                    await broadcast_index(channel.removeprefix(MARKET_INDEX_CHANNEL_PREFIX), payload)
+            else:
+                await broadcast(channel.removeprefix(MARKET_CANDLE_CHANNEL_PREFIX), payload)
     finally:
-        await pubsub.punsubscribe(MARKET_CANDLE_CHANNEL_PATTERN)
+        await pubsub.punsubscribe(MARKET_CANDLE_CHANNEL_PATTERN, MARKET_INDEX_CHANNEL_PATTERN)
         await pubsub.aclose()
         await redis.aclose()

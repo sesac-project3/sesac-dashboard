@@ -5,14 +5,13 @@ import { ArrowDown, ArrowUp, Play, Sparkles } from "lucide-react";
 
 const SLIDES = [
   {
-    headline: "코스피, 코스닥, 환율까지\n한 화면에서",
+    headline: "코스피, 코스닥까지\n한 화면에서",
     description: "매일 아침, 오늘의 시장 상황을 가장 먼저 확인하세요.",
     illustration: (
       <div className="flex flex-col gap-3">
         {[
           { label: "코스피", value: "2,650.12", up: true },
           { label: "코스닥", value: "845.30", up: true },
-          { label: "원/달러", value: "1,380.5", up: false },
         ].map((row) => (
           <div
             key={row.label}
