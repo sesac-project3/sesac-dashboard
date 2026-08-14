@@ -72,6 +72,7 @@ class Settings(BaseSettings):
 
     # --- F-04, 보류 중이지만 재개 대비 자리만 유지 (PRODUCT.md ISSUE-E4) ---
     telegram_bot_token: str = ""
+    telegram_bot_username: str = ""
 
     # --- F-02 STT (ISSUE-E1, invest/ai/stt 이식) ---
     whisper_model_size: str = "base"  # ponytail: 원본은 small(~466MB). base(~145MB)가 로컬 CPU 데모엔 더 실용적, 정확도 필요하면 올리기
