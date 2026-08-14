@@ -9,13 +9,16 @@
 
 import json
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import BusinessException
+from app.common.naver_news import fetch_naver_news_for_stock
+from app.common.openai_client import get_openai_client
 from app.core.kis import kis_token_client
 from app.core.redis import redis_client
 from app.domain.stocks.models import Stock
@@ -23,6 +26,7 @@ from app.domain.stocks.schemas import (
     HomeDashboard,
     InvestorTrend,
     MarketIndexDetail,
+    MarketIssue,
     RankingType,
     StockRankingItem,
 )
@@ -147,6 +151,95 @@ def _build_rankings(items: list[StockRankingItem]) -> dict[RankingType, list[Sto
         "거래대금": sorted(items, key=lambda x: x.tradingValue, reverse=True),
         "거래량": sorted(items, key=lambda x: x.volume, reverse=True),
     }
+
+
+_MARKET_ISSUE_BUCKET_MINUTES = 15  # 0/15/30/45분 단위로만 갱신 — 화면 하단 "갱신 시간"도 이 경계에 맞춘다
+
+
+def _current_market_issue_bucket(now: datetime) -> datetime:
+    floored_minute = (now.minute // _MARKET_ISSUE_BUCKET_MINUTES) * _MARKET_ISSUE_BUCKET_MINUTES
+    return now.replace(minute=floored_minute, second=0, microsecond=0)
+
+
+def _market_issue_cache_key(bucket: datetime) -> str:
+    return f"market:ai-issue:{bucket.strftime('%Y%m%d%H%M')}"
+
+
+def _fetch_market_headlines() -> list[str]:
+    """네이버 뉴스 검색 API로 '코스피'/'코스닥' 각각 최신 3건(현재 시점 기준)을 가져온다.
+    종목 리포트(report_service)와 같은 fetch_naver_news_for_stock을 재사용 — 그 함수는
+    아무 검색어나 받아 제목에 해당 문자열이 포함된 기사를 걸러주므로 지수명 검색에도 그대로 쓸 수 있다."""
+    headlines: list[str] = []
+    for query in ("코스피", "코스닥"):
+        for item in fetch_naver_news_for_stock(query, limit=3):
+            headlines.append(item["title"])
+    return headlines
+
+
+def _generate_market_issue(indices: list[MarketIndexDetail]) -> MarketIssue | None:
+    """[KIS 지수 실데이터] + [코스피/코스닥 검색 네이버 뉴스 최신 6건]에 있는 사실만으로
+    '국내 주요 이슈' 카드 문구를 만든다. 근거가 하나도 없으면(지수 조회 실패) 지어내지 않고 None."""
+    if not indices:
+        return None
+    client = get_openai_client()
+    if client is None:
+        return None
+
+    headlines = _fetch_market_headlines()
+    index_facts = [
+        f"{idx.title}: {idx.value:,.2f} ({'+' if idx.change >= 0 else ''}{idx.change:,.2f}, "
+        f"{'+' if idx.changePercent >= 0 else ''}{idx.changePercent:.2f}%), "
+        f"개인 {idx.investors.personal:,.0f}억/외국인 {idx.investors.foreign:,.0f}억/"
+        f"기관 {idx.investors.institution:,.0f}억 순매수"
+        for idx in indices
+    ]
+
+    system = (
+        "너는 증권 앱 홈 화면에 들어가는 '국내 주요 이슈' 카드를 쓰는 애널리스트야. "
+        "아래 [지수 데이터]와 [코스피/코스닥 뉴스 헤드라인]에 없는 수치·사건은 절대 지어내지 마. "
+        "뉴스가 비어 있으면 지수 데이터(등락률/수급)만으로 서술하고 원인을 추측하지 마.\n"
+        "반드시 이 형식으로 출력해:\n"
+        "1번째 줄: 12자 내외의 제목만\n"
+        "2번째 줄부터: 코스피/코스닥 등락과 수급, 뉴스에 실제로 언급된 이슈를 묶어 2~3문장, "
+        "합쳐서 120자 내외. 한자(漢字)는 절대 섞지 마."
+    )
+    user = (
+        "[지수 데이터]\n" + "\n".join(index_facts) + "\n\n[코스피/코스닥 뉴스 헤드라인]\n"
+        + ("\n".join(f"- {h}" for h in headlines) if headlines else "(현재 검색된 뉴스 없음)")
+    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            max_tokens=300,
+        )
+        lines = [ln.strip() for ln in (response.choices[0].message.content or "").splitlines() if ln.strip()]
+        if len(lines) < 2:
+            return None
+        title = re.sub(r"^[-*•]\s*", "", lines[0]).strip()
+        body = " ".join(re.sub(r"^[-*•]\s*", "", ln).strip() for ln in lines[1:])
+        return MarketIssue(title=title, text=body, updatedAt=_current_market_issue_bucket(datetime.now(KST)))
+    except Exception:
+        logger.exception("국내 주요 이슈 LLM 생성 실패")
+        return None
+
+
+def get_market_issue() -> MarketIssue | None:
+    now = datetime.now(KST)
+    bucket = _current_market_issue_bucket(now)
+    cache_key = _market_issue_cache_key(bucket)
+
+    cached = redis_client.get(cache_key)
+    if cached is not None:
+        return MarketIssue.model_validate(json.loads(cached)) if cached else None
+
+    issue = _generate_market_issue(fetch_index_details())
+    # 다음 15분 경계까지만 캐시 유지 — 경계를 넘어가면 자연히 새 버킷 키로 다시 생성된다.
+    next_bucket = bucket + timedelta(minutes=_MARKET_ISSUE_BUCKET_MINUTES)
+    ttl = max(1, int((next_bucket - now).total_seconds()))
+    # 실패도 빈 문자열로 캐싱해서, 같은 버킷 안에서는 LLM을 반복 호출하지 않는다.
+    redis_client.set(cache_key, json.dumps(issue.model_dump(mode="json")) if issue else "", ex=ttl)
+    return issue
 
 
 def get_home_dashboard(db: Session) -> HomeDashboard:

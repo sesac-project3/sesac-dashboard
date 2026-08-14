@@ -58,6 +58,12 @@ class HomeDashboard(BaseModel):
     asOf: datetime
 
 
+class MarketIssue(BaseModel):
+    title: str
+    text: str
+    updatedAt: datetime
+
+
 class Candle(BaseModel):
     timestamp: datetime | date
     openPrice: float
