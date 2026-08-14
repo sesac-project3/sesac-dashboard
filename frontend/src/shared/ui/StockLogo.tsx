@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-// 종목코드 기준 fallback(색/이니셜) — public/icons/stocks/{코드}.png가 없거나 로드 실패할 때만 씀.
+// 종목코드 기준 fallback(색/이니셜) — public/img/stocks/{코드}.png가 없거나 로드 실패할 때만 씀.
 const LOGO_FALLBACK: Record<string, { bg: string; text: string }> = {
   "005930": { bg: "bg-blue-600", text: "SEC" },
   "000660": { bg: "bg-red-500", text: "SK" },
@@ -18,7 +18,7 @@ export default function StockLogo({ code, name }: { code: string; name: string }
     return (
       // eslint-disable-next-line @next/next/no-img-element -- public/ 정적 아이콘 5개뿐, next/image 불필요
       <img
-        src={`/icons/stocks/${code}.png`}
+        src={`/img/stocks/${code}.png`}
         alt={name}
         className="h-9 w-9 shrink-0 rounded-full object-cover shadow-sm"
         onError={() => setFailed(true)}
