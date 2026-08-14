@@ -186,7 +186,6 @@ export default function MarketDashboard() {
           <div className="h-[124px] animate-pulse rounded-lg bg-surface" />
         ) : issue ? (
           <AiMarketIssueCard
-            title={issue.title}
             text={issue.text}
             timestamp={formatAsOf(issue.updatedAt)}
           />

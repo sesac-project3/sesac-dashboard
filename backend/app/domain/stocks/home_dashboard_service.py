@@ -41,8 +41,8 @@ _INDEX_CACHE_KEY = "market:index-details"
 
 # (indexType, 표시 타이틀, KIS 업종코드, KIS 시장구분 플래그)
 _INDEX_DEFS: list[tuple[str, str, str, str]] = [
-    ("KOSPI", "코스피", "0001", "KSP"),
-    ("KOSDAQ", "코스닥", "1001", "KSQ"),
+    ("KOSPI", "KOSPI", "0001", "KSP"),
+    ("KOSDAQ", "KOSDAQ", "1001", "KSQ"),
 ]
 
 

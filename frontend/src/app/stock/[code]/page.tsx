@@ -45,7 +45,7 @@ export default async function StockReportPage({
         <StockLiveSection
           stockCode={code}
           stockName={stockName}
-          market={stock?.market === "KOSDAQ" ? "코스닥" : "코스피"}
+          market={stock?.market === "KOSDAQ" ? "KOSDAQ" : "KOSPI"}
         />
 
         <WeeklySentimentWeather stockCode={code} />
