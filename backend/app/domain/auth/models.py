@@ -4,7 +4,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, ForeignKey, String
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base, TimestampMixin
@@ -16,6 +16,12 @@ class User(Base, TimestampMixin):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     device_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
     telegram_chat_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+
+    # Telegram notification preferences
+    notify_morning: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    notify_evening: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+    notify_alert: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
+
 
 
 class KakaoToken(Base, TimestampMixin):

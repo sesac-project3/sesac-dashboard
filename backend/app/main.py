@@ -21,18 +21,24 @@ from app.domain.stocks.router import router as stocks_router
 from app.domain.stocks.market_subscription import restore_kis_subscriptions, subscribe_candle_events
 from app.domain.stt.router import router as stt_router
 from app.domain.telegram.router import router as telegram_router
+from app.domain.telegram.polling import run_telegram_polling
+from app.domain.telegram.scheduler import run_telegram_scheduler
 from app.domain.watchlists.router import router as watchlists_router
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     stop_event = asyncio.Event()
     subscriber_task = asyncio.create_task(subscribe_candle_events(stop_event))
+    telegram_polling_task = asyncio.create_task(run_telegram_polling(stop_event))
+    telegram_scheduler_task = asyncio.create_task(run_telegram_scheduler(stop_event))
     await restore_kis_subscriptions()
     try:
         yield
     finally:
         stop_event.set()
         await subscriber_task
+        await telegram_polling_task
+        await telegram_scheduler_task
 
 
 app = FastAPI(title="sesac-dashboard API", lifespan=lifespan)
