@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Heart, Triangle } from "lucide-react";
 import { getAccessToken } from "@/shared/api/base";
 import { getWatchlist, toggleWatchlist } from "@/shared/api/watchlists";
+import Button from "@/shared/ui/Button";
 
 import type { Quote } from "@/entities/stock/chart-types";
 
@@ -78,8 +79,8 @@ export default function StockQuoteCard({
   return (
     <div className="flex flex-col gap-[14px] px-5 pt-6 pb-4">
       <div className="relative flex flex-col gap-1">
-        <button
-          type="button"
+        <Button
+          variant="icon"
           onClick={handleToggleFavorite}
           aria-label={isFav ? "관심종목 해제" : "관심종목 등록"}
           className="absolute top-0 right-0 cursor-pointer text-heading transition-transform active:scale-90"
@@ -89,9 +90,9 @@ export default function StockQuoteCard({
             size={24}
             strokeWidth={1.8}
             fill={isFav ? "currentColor" : "none"}
-            className={isFav ? "text-red-500" : "text-gray-400 dark:text-gray-500"}
+            className={isFav ? "text-market-up" : "text-neutral-300"}
           />
-        </button>
+        </Button>
         <h1 className="text-[28px] leading-none font-bold tracking-[-0.04em] text-heading">
           {stockName}
         </h1>

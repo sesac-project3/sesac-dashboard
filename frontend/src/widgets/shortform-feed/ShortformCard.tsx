@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Sparkles, Volume2, VolumeX } from "lucide-react";
 import type { Shortform } from "@/entities/shortform/types";
 import LikeButton from "@/features/shortform-like/LikeButton";
+import Button from "@/shared/ui/Button";
 import { getResumePosition, saveVideoPosition } from "@/widgets/shortform-feed/videoPositionStore";
 import { getServerSnapshot, getSnapshot, setMuted, setVolume, subscribe } from "@/widgets/shortform-feed/volumeStore";
 
@@ -168,7 +169,8 @@ export default function ShortformCard({
             className="pointer-events-auto flex items-center gap-1.5 px-2 py-1"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
+            <Button
+              variant="icon"
               onClick={() => setMuted(!isMuted)}
               className="flex items-center justify-center text-white"
               aria-label={isMuted ? "음소거 해제" : "음소거"}
@@ -179,7 +181,7 @@ export default function ShortformCard({
               ) : (
                 <Volume2 className="h-4 w-4" aria-hidden="true" />
               )}
-            </button>
+            </Button>
             <input
               type="range"
               min={0}
@@ -193,7 +195,8 @@ export default function ShortformCard({
             />
           </div>
           {insightLines.length > 0 && (
-            <button
+            <Button
+              variant="text"
               onClick={toggleInsight}
               // 데스크톱: 마우스 올리면 미리보기로 뜨고 떼면 사라짐(호버). 탭/클릭은 그대로
               // 토글이라 터치 기기(호버 없음)에서도 동일하게 동작한다.
@@ -204,7 +207,7 @@ export default function ShortformCard({
               }`}
             >
               <Sparkles className="mr-1 inline h-3.5 w-3.5" aria-hidden="true" /> AI INSIGHT
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -252,7 +255,7 @@ export default function ShortformCard({
         </div>
         <Link
           href={`/stock/${shortform.stockCode}`}
-          className="pointer-events-auto flex h-[52px] w-full items-center justify-center rounded-full bg-primary text-[15px] font-medium text-white transition active:scale-[0.98]"
+          className="pointer-events-auto flex h-[52px] w-full items-center justify-center rounded-full bg-primary text-[14px] font-medium text-white transition active:scale-[0.98]"
         >
           종목 분석 보기
         </Link>

@@ -61,7 +61,7 @@ export default function WatchlistPage() {
             <Link
               key={stock.code}
               href={`/stock/${stock.code}`}
-              className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0 transition-colors hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+              className="flex items-center justify-between py-3.5 first:pt-0 last:pb-0 transition-colors hover:bg-neutral-50/50"
             >
               <div className="flex items-center gap-3">
                 <StockLogo code={stock.code} name={stock.name} />
@@ -70,10 +70,10 @@ export default function WatchlistPage() {
 
               <div className="text-right">
                 {stock.price === null ? (
-                  <p className="text-[13px] text-caption">시세 조회 실패</p>
+                  <p className="text-[12px] text-caption">시세 조회 실패</p>
                 ) : (
                   <>
-                    <p className="text-[15px] font-bold text-heading">
+                    <p className="text-[16px] font-bold text-heading">
                       {stock.price.toLocaleString()}원
                     </p>
                     <p
