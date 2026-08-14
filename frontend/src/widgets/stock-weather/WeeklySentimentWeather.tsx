@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, CloudRain, CloudSun, Sun } from "lucide-react";
 import Card from "@/shared/ui/Card";
+import Button from "@/shared/ui/Button";
 import { getWeeklyStockSentiments, type DailySentimentItem } from "@/shared/api/stocks";
 
 const WINDOW = 7; // items visible at once
@@ -50,7 +51,7 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
 
   if (hasError) {
     return (
-      <Card className="flex min-h-[180px] items-center justify-center text-center text-[13px] text-caption">
+      <Card className="flex min-h-[180px] items-center justify-center text-center text-[12px] text-caption">
         주간 뉴스 기상도를 불러오지 못했어요.
       </Card>
     );
@@ -106,36 +107,36 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
       {/* Title & Navigation Header */}
       <div className="flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-[16px] font-semibold text-heading">
-          <CloudSun aria-hidden="true" className="h-[18px] w-[18px] text-slate-400" /> 주간 뉴스 기상도
+          <CloudSun aria-hidden="true" className="h-[18px] w-[18px] text-neutral-500" /> 주간 뉴스 기상도
         </h2>
 
         <div className="flex items-center gap-1">
-          <button
-            type="button"
+          <Button
+            variant="icon"
             onClick={goLeft}
             disabled={!canGoPrev}
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-[15px] font-bold transition-all ${
+            className={`flex h-7 w-7 items-center justify-center rounded-full font-bold transition-all ${
               canGoPrev
-                ? "bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-95 cursor-pointer"
-                : "bg-slate-100/50 text-slate-300 cursor-not-allowed opacity-40"
+                ? "bg-neutral-100 text-neutral-700 hover:bg-neutral-200 active:scale-95 cursor-pointer"
+                : "bg-neutral-100/50 text-neutral-300 cursor-not-allowed opacity-40"
             }`}
             title={canGoPrev ? "이전 7일" : "처음 데이터입니다"}
           >
             <ChevronLeft aria-hidden="true" className="h-4 w-4" />
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="icon"
             onClick={goRight}
             disabled={!canGoNext}
-            className={`flex h-7 w-7 items-center justify-center rounded-full text-[15px] font-bold transition-all ${
+            className={`flex h-7 w-7 items-center justify-center rounded-full font-bold transition-all ${
               canGoNext
-                ? "bg-slate-100 text-slate-700 hover:bg-slate-200 active:scale-95 cursor-pointer"
-                : "bg-slate-100/50 text-slate-300 cursor-not-allowed opacity-40"
+                ? "bg-neutral-100 text-neutral-700 hover:bg-neutral-200 active:scale-95 cursor-pointer"
+                : "bg-neutral-100/50 text-neutral-300 cursor-not-allowed opacity-40"
             }`}
             title={canGoNext ? "다음 7일" : "최신 데이터입니다"}
           >
             <ChevronRight aria-hidden="true" className="h-4 w-4" />
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -167,31 +168,31 @@ export default function WeeklySentimentWeather({ stockCode }: { stockCode: strin
                 ? "bg-emerald-600 text-white"
                 : item.sentiment === "부정"
                 ? "bg-rose-600 text-white"
-                : "bg-slate-700 text-white";
+                : "bg-neutral-800 text-white";
 
             return (
               <div
                 key={item.date}
-                className="group flex flex-col items-center justify-center rounded-xl bg-slate-50 py-2.5 px-1 mx-[3px] transition-colors hover:bg-slate-100 hover:shadow-sm select-none"
+                className="group flex flex-col items-center justify-center rounded-xl bg-neutral-50 py-2.5 px-1 mx-[3px] transition-colors hover:bg-neutral-100 hover:shadow-sm select-none"
                 style={{ width: `calc(${100 / items.length}% - 6px)` }}
               >
                 <span className="text-[10px] font-medium text-caption">{formattedDate}</span>
-                <span className="mt-0.5 text-[11px] font-semibold text-heading">{item.day}</span>
+                <span className="mt-0.5 text-[12px] font-semibold text-heading">{item.day}</span>
 
-                <span className="mt-1 text-[20px] leading-none select-none transition-transform duration-200 group-hover:scale-110">
+                <span className="mt-1 leading-none select-none transition-transform duration-200 group-hover:scale-110">
                   {item.sentiment === "긍정" ? (
                     <Sun aria-hidden="true" className="h-5 w-5 text-amber-400" />
                   ) : item.sentiment === "부정" ? (
                     <CloudRain aria-hidden="true" className="h-5 w-5 text-sky-400" />
                   ) : (
-                    <CloudSun aria-hidden="true" className="h-5 w-5 text-slate-400" />
+                <CloudSun aria-hidden="true" className="h-5 w-5 text-neutral-500" />
                   )}
                 </span>
 
                 {/* Hover-only sentiment badge */}
                 <div className="mt-1 flex h-[16px] items-center justify-center">
                   <span
-                    className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold opacity-0 scale-90 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 ${sentimentBadgeColor}`}
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold opacity-0 scale-90 transition-all duration-200 group-hover:opacity-100 group-hover:scale-100 ${sentimentBadgeColor}`}
                   >
                     {item.sentiment}
                   </span>

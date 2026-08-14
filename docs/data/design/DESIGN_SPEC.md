@@ -132,7 +132,12 @@ padding-bottom: env(safe-area-inset-bottom);
 | `--color-market-down` | `#3B82F6` 계열 | 국내 증시 하락 |
 | `--color-positive` | `#2DC98E` | 포트폴리오 집계 positive |
 | `--color-danger` | `#EF4444` 계열 | destructive/error |
-| `--color-info` | `#3B82F6` 계열 | information |
+| `--color-warning` | `#FF9500` | 주의, 변동성, 보통 위험 |
+| `--color-info` | `#1B64DA` | 정보성 링크, 안내 |
+| `--color-surface-info` | `#E8F3FF` | 정보 배경 |
+| `--color-surface-danger` | `#FEE9E8` | 오류·위험 배경 |
+| `--color-surface-warning` | `#FFF5E6` | 경고 배경 |
+| `--color-kakao` | `#FEE500` | 카카오 로그인 전용 |
 
 > 실제 프로젝트에 이미 semantic color token이 있다면 기존 token을 우선 사용한다.
 > 위 값은 새 token을 만들 때의 기준이다.
@@ -141,15 +146,40 @@ padding-bottom: env(safe-area-inset-bottom);
 
 | Token | Value |
 |---|---|
-| `--color-ink` | `#111111` |
-| `--color-heading` | `#1F2435` |
-| `--color-heading-alt` | `#20253A` |
-| `--color-caption` | `#8B90A0` |
-| `--color-caption-alt` | `#9AA1B4` |
-| `--color-surface` | `#F5F5F7` |
-| `--color-white` | `#FFFFFF` |
-| `--color-border` | `#E5E7EB` |
-| `--color-border-soft` | `#E7E8F2` |
+| `--color-neutral-950` | `#191F28` | 주요 제목, 핵심 숫자 |
+| `--color-neutral-800` | `#333D4B` | 본문 강조, 라벨 |
+| `--color-neutral-700` | `#4E5968` | 일반 본문 |
+| `--color-neutral-500` | `#8B95A1` | 보조 설명, 메타 정보 |
+| `--color-neutral-300` | `#B0B8C1` | 비활성 텍스트, 차트 보조 |
+| `--color-neutral-200` | `#E5E8EB` | 기본 border, divider |
+| `--color-neutral-100` | `#F2F4F6` | 입력창, 회색 배경, progress 배경 |
+| `--color-neutral-50` | `#F8F9FA` | 페이지·카드 보조 배경 |
+| `--color-white` | `#FFFFFF` | 카드, 헤더, 버튼 텍스트 |
+
+`white`까지 포함하면 9개지만, 실질적인 회색 단계는 8개입니다. 기존 호환용 토큰(`ink`, `heading`, `caption`, `surface`, `border`)은 위 neutral 토큰을 참조한다.
+
+기존 무채색 값은 다음 기준으로 통합한다.
+
+- `#111111`, `#111827`, `#1F2435`, `#20253A` → `neutral-950`
+- `#6B7684` → 문맥에 따라 `neutral-700` 또는 `neutral-500`
+- `#8B90A0`, `#9AA1B4` → `neutral-500`
+- `#E5E7EB`, `#E7E8F2` → `neutral-200`
+- `#F5F5F7`, `#F9FAFB` → `neutral-50`
+- `#374151` → `neutral-800`
+- `#9CA3AF` → `neutral-300`
+- Tailwind `gray-*`, `slate-*` 직접 사용 → 의미가 맞는 `neutral-*` 토큰
+
+### Neutral Migration Order
+
+화면 정리 순서는 다음과 같다.
+
+1. 리포트: `AiReportDetailModal`, `StockReportSummaryWidget`
+2. 홈/관심종목: 홈 대시보드, 관심종목, 시세 카드
+3. 종목 상세/차트: 종목 상세 정보와 차트 tooltip/dataset
+4. 프로필/온보딩: 프로필, 로그인, 온보딩
+5. 숏폼: 영상 위 black/white 투명도 조합은 가독성을 위해 별도 유지
+
+추가 색상 규칙: `primary-soft`는 `#7C78E8`로 통합하고, 일반 정보는 `info`(`#1B64DA`), 시장 하락은 `market-down`(`#3B82F6`)을 사용한다. `positive`는 포트폴리오 집계에만 사용하며, 상승·하락은 색상과 방향 아이콘 및 `+/-` 텍스트를 함께 표시한다.
 
 ---
 
@@ -240,14 +270,26 @@ ui-sans-serif, system-ui, sans-serif
 
 ## 5.2 Type Scale
 
+화면에서 사용하는 폰트 크기는 다음 8단계로 제한한다.
+
 | Name | Size | Weight | Line Height | Usage |
 |---|---:|---:|---:|---|
-| Display | 38px | 700 | 1.1 | 총자산/현재가 등 핵심 숫자 |
-| Headline | 22px | 500 | 1.25 | 페이지/모달 제목 |
-| Title | 18px | 600 | 1.3 | 섹션 제목 |
-| Body Large | 16px | 400~500 | 1.5 | 설명/중요 본문 |
-| Body | 14px | 400 | 1.5 | 일반 본문 |
-| Label | 11~13px | 500 | 1.3 | 캡션/배지 |
+| Micro | 10px | 500~700 | 1.3 | 배지, 날짜, 차트 보조값 |
+| Caption | 12px | 400~500 | 1.3 | 캡션, 메타 정보 |
+| Body Small | 14px | 400~500 | 1.5 | 작은 본문, 버튼 |
+| Body | 16px | 400~500 | 1.5 | 기본 본문 |
+| Title | 18px | 600~700 | 1.3 | 탭, 섹션 제목 |
+| Display Small | 24px | 600~700 | 1.25 | 강조 제목 |
+| Display | 28px | 700 | 1.1 | 페이지명, 종목명 |
+| Price | 40px | 700 | 1.1 | 현재가, 핵심 숫자 |
+
+### Type Scale Rules
+
+- `8px`, `9px`는 사용하지 않는다.
+- `11px`, `13px`, `15px`, `17px`는 신규 사용하지 않는다.
+- 기존의 비표준 크기는 가장 가까운 Type Scale 값으로 통합한다.
+- 특별한 사유가 없는 한 위 Type Scale 외의 임의 크기를 추가하지 않는다.
+- 아이콘 크기는 텍스트 크기와 별도의 기준으로 관리한다.
 
 ## 5.3 Letter Spacing
 
