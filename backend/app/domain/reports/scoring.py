@@ -189,14 +189,21 @@ def calculate_stock_opinion(
 
     total_score = round(score, 2)
 
-    # total_score 구간에 따른 의견 및 정성적 신호 세분화
-    if total_score >= 0.45:
+    # total_score 구간에 따른 의견 및 정성적 신호 세분화.
+    # 컷오프(0.40 / -0.10)는 scripts/backtest_scoring.py로 DB 실데이터(5종목 x 65개 시점,
+    # 2026-07-18~07-31, 정답=T+10거래일 등락 ±3%) 그리드서치한 결과 — 기존 값(0.45/-0.30)의
+    # 30.8%에서 35.4%로 개선. 70% 목표는 이 접근으로 못 미쳤다: 표본이 5종목/1개월치뿐이라
+    # 통계적으로 약하고, 애초에 PER/PBR/영업이익률 같은 펀더멘털 신호는 2주 단기 가격 방향과
+    # 상관관계가 약함(corr=0.139) — 방향성 자체는 맞는 편(BUY 평균 +6.1% > HOLD -2.4% >
+    # SELL -3.9%)이라 컷오프를 여기서 더 밀어붙이면 65개 표본 노이즈에 과적합될 뿐이라 멈춤.
+    # 데이터(종목 수/기간)가 늘면 스크립트 재실행해서 재튜닝할 것.
+    if total_score >= 0.40:
         opinion = "BUY"
         qualitative_signal = "지표들이 양호한 편입니다"
     elif total_score >= 0.15:
         opinion = "HOLD"
         qualitative_signal = "중립적 관망 구간입니다"
-    elif total_score >= -0.30:
+    elif total_score >= -0.10:
         opinion = "HOLD"
         if operating_margin is not None and operating_margin >= 30.0:
             qualitative_signal = "실적은 우수하나 단기 주가 변동성 혼조 구간입니다"
