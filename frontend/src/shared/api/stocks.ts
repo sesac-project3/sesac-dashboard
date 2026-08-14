@@ -1,5 +1,5 @@
 import base, { unwrapApiResponse, type ApiEnvelope } from "@/shared/api/base";
-import type { HomeDashboard, MarketIndex, Stock } from "@/entities/stock/types";
+import type { HomeDashboard, MarketIssue, Stock } from "@/entities/stock/types";
 import type { CandleInterval, CandleResponse } from "@/entities/stock/chart-types";
 
 export interface DailySentimentItem {
@@ -17,6 +17,11 @@ export interface WeeklySentimentResponse {
 export const getHomeDashboard = () =>
   base
     .get<ApiEnvelope<HomeDashboard>>("/stocks/home-dashboard")
+    .then(unwrapApiResponse);
+
+export const getMarketIssue = () =>
+  base
+    .get<ApiEnvelope<MarketIssue | null>>("/stocks/market-issue")
     .then(unwrapApiResponse);
 
 export const getStock = (stockCode: string) =>

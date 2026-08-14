@@ -7,9 +7,8 @@ import PageContainer from "@/shared/ui/PageContainer";
 import MarketIndexCarousel from "@/widgets/home/MarketIndexCarousel";
 import AiMarketIssueCard from "@/widgets/home/AiMarketIssueCard";
 import StockRankingSection from "@/widgets/home/StockRankingSection";
-import { getHomeDashboard } from "@/shared/api/stocks";
-import type { HomeDashboard } from "@/entities/stock/types";
-import { MOCK_AI_ISSUE } from "@/shared/mock/homeMockData";
+import { getHomeDashboard, getMarketIssue } from "@/shared/api/stocks";
+import type { HomeDashboard, MarketIssue } from "@/entities/stock/types";
 import useMarketIndexSubscription from "@/features/stock-chart/useMarketIndexSubscription";
 
 function formatAsOf(iso: string) {
@@ -20,11 +19,13 @@ function formatAsOf(iso: string) {
 
 // 로그인 상태(HomeGate)에서 보여주는 홈 대시보드. 지수/투자자동향/랭킹은 KIS Open API 실데이터
 // (/stocks/home-dashboard)를 클라이언트에서 fetch — 랭킹 카드의 새로고침 버튼이 다시 부르는
-// 것도 이 함수다. AI 이슈 카드는 이번 작업 범위 밖이라 기존 mock 유지.
+// 것도 이 함수다.
 export default function MarketDashboard() {
   const [data, setData] = useState<HomeDashboard | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const [issue, setIssue] = useState<MarketIssue | null>(null);
+  const [issueLoading, setIssueLoading] = useState(true);
   const { connectionState, updates: liveIndexUpdates } = useMarketIndexSubscription();
   // ponytail: 로딩화면 로직 임시 주석처리 (요청으로 비활성화, 필요해지면 복구)
   // // 최초 로딩 화면: 데이터/에러가 도착하면 진행률 100%를 0.3초 보여준 뒤 실제 화면으로 전환.
@@ -59,6 +60,16 @@ export default function MarketDashboard() {
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
   }, [connectionState, load]);
+
+  useEffect(() => {
+    // AI 이슈는 서버에서 15분 버킷 단위로만 갱신되는 LLM 생성 결과라 5초 폴링에 얹지
+    // 않는다. 60초마다 다시 불러서(대부분 Redis 캐시 히트라 가벼움) 15분 경계를
+    // 넘어가면 화면도 따라 갱신되게 한다.
+    const loadIssue = () => getMarketIssue().then(setIssue).catch(() => setIssue(null)).finally(() => setIssueLoading(false));
+    loadIssue();
+    const issueInterval = setInterval(loadIssue, 60_000);
+    return () => clearInterval(issueInterval);
+  }, []);
 
   // useEffect(() => {
   //   if ((data || error) && !initialLoadHandledRef.current) {
@@ -169,12 +180,16 @@ export default function MarketDashboard() {
           })}
         />
 
-        {/* 2. 국내 주요 이슈 AI 요약 카드 */}
-        <AiMarketIssueCard
-          title={MOCK_AI_ISSUE.title}
-          text={MOCK_AI_ISSUE.text}
-          timestamp={MOCK_AI_ISSUE.timestamp}
-        />
+        {/* 2. 국내 주요 이슈 AI 요약 카드 — 코스피/코스닥 검색 네이버 뉴스 + KIS 지수 실데이터
+            기반 생성. 근거가 없으면 지어내지 않고 서버가 null을 주므로 그때는 카드 자체를 숨긴다. */}
+        {issueLoading ? (
+          <div className="h-[124px] animate-pulse rounded-lg bg-surface" />
+        ) : issue ? (
+          <AiMarketIssueCard
+            text={issue.text}
+            timestamp={formatAsOf(issue.updatedAt)}
+          />
+        ) : null}
 
         {/* 3. 국내주식 랭킹 섹션 (상승률/하락률/거래대금/거래량, 새로고침 가능) */}
         <StockRankingSection
