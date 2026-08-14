@@ -2,7 +2,7 @@
 
 import Card from "@/shared/ui/Card";
 import StockChartPanel from "@/features/stock-chart/StockChartPanel";
-import useStockWebSocket from "@/features/stock-chart/useStockWebSocket";
+import useStockSubscription from "@/features/stock-chart/useStockSubscription";
 import StockQuoteCard from "@/features/stock-quote/StockQuoteCard";
 
 export default function StockLiveSection({
@@ -14,7 +14,7 @@ export default function StockLiveSection({
   stockName: string;
   market: string;
 }) {
-  const { quote, candlesByInterval } = useStockWebSocket(stockCode);
+  const { quote, candlesByInterval } = useStockSubscription(stockCode);
 
   return (
     <Card className="flex flex-col border-0 px-0 py-0 shadow-none">

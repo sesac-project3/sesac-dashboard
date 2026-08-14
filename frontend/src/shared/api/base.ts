@@ -5,6 +5,7 @@ import { API_BASE_URL } from "@/shared/config/env";
 // httpOnly 쿠키로 바꾸는 건 보안 강화 시점에 별도 작업으로.
 const ACCESS_TOKEN_KEY = "accessToken";
 const REFRESH_TOKEN_KEY = "refreshToken";
+export const AUTH_TOKEN_CHANGED_EVENT = "auth-token-changed";
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -16,11 +17,13 @@ export const getAccessToken = () =>
 export const setTokens = (accessToken: string, refreshToken: string) => {
   localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
   localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+  window.dispatchEvent(new Event(AUTH_TOKEN_CHANGED_EVENT));
 };
 
 export const clearTokens = () => {
   localStorage.removeItem(ACCESS_TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  window.dispatchEvent(new Event(AUTH_TOKEN_CHANGED_EVENT));
 };
 
 base.interceptors.request.use((config) => {
