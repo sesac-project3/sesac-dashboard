@@ -9,8 +9,49 @@ import Card from "@/shared/ui/Card";
 import {
   getTelegramStatus,
   generateTelegramLinkCode,
+  updateTelegramSettings,
+  disconnectTelegram,
   type TelegramStatusResponse,
 } from "@/shared/api/telegram";
+import { Bell, Newspaper, BarChart2, Zap } from "lucide-react";
+
+import { type ReactNode } from "react";
+
+// Toggle switch component
+function Toggle({
+  checked,
+  onChange,
+  label,
+  description,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: ReactNode;
+  description: string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <div>
+        <p className="text-[13px] font-medium text-heading">{label}</p>
+        <p className="text-[11px] text-caption">{description}</p>
+      </div>
+      <button
+        role="switch"
+        aria-checked={checked}
+        onClick={() => onChange(!checked)}
+        className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${
+          checked ? "bg-primary" : "bg-slate-200"
+        }`}
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-200 ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </button>
+    </div>
+  );
+}
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -19,6 +60,7 @@ export default function ProfilePage() {
   const [tgStatus, setTgStatus] = useState<TelegramStatusResponse | null>(null);
   const [linkCode, setLinkCode] = useState<string | null>(null);
   const [isLinking, setIsLinking] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
@@ -27,7 +69,6 @@ export default function ProfilePage() {
     }
   }, [loggedIn, router]);
 
-  // Fetch Telegram link status on load
   useEffect(() => {
     if (!loggedIn) return;
 
@@ -44,7 +85,6 @@ export default function ProfilePage() {
     };
   }, [loggedIn]);
 
-  // Start polling to detect successful linkage automatically
   const startPolling = () => {
     if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
 
@@ -72,19 +112,49 @@ export default function ProfilePage() {
     try {
       const data = await generateTelegramLinkCode();
       setLinkCode(data.linkCode);
-
-      // Construct Telegram deep link with start parameter
       const botUrl = `https://t.me/${data.botUsername}?start=${data.linkCode}`;
-      
-      // Open in a new tab/window
       window.open(botUrl, "_blank");
-
-      // Start checking if linking succeeds in background
       startPolling();
     } catch (err) {
       console.error("Failed to generate link code", err);
       alert("인증 코드 생성에 실패했습니다. 다시 시도해 주세요.");
       setIsLinking(false);
+    }
+  };
+
+  const handleToggle = async (
+    field: "notifyMorning" | "notifyEvening" | "notifyAlert",
+    value: boolean
+  ) => {
+    if (!tgStatus) return;
+    const updated = { ...tgStatus, [field]: value };
+    setTgStatus(updated);
+    try {
+      await updateTelegramSettings({
+        notifyMorning: updated.notifyMorning,
+        notifyEvening: updated.notifyEvening,
+        notifyAlert: updated.notifyAlert,
+      });
+    } catch {
+      // Revert on error
+      setTgStatus(tgStatus);
+    }
+  };
+
+  const handleDisconnect = async () => {
+    if (!confirm("텔레그램 연동을 해제하시겠습니까?\n모든 알림 발송이 중단됩니다.")) return;
+    setIsDisconnecting(true);
+    try {
+      await disconnectTelegram();
+      setTgStatus((prev) =>
+        prev
+          ? { ...prev, linked: false, notifyMorning: true, notifyEvening: true, notifyAlert: true }
+          : null
+      );
+    } catch {
+      alert("연동 해제에 실패했습니다. 다시 시도해 주세요.");
+    } finally {
+      setIsDisconnecting(false);
     }
   };
 
@@ -105,7 +175,7 @@ export default function ProfilePage() {
         <Card className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
             <h3 className="text-[15px] font-bold text-heading flex items-center gap-2">
-              <span>✈️</span> 텔레그램 알림 서비스
+              <Bell size={16} className="text-heading" /> 텔레그램 알림 서비스
             </h3>
             {tgStatus?.linked ? (
               <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
@@ -120,11 +190,44 @@ export default function ProfilePage() {
 
           <p className="text-[13px] leading-relaxed text-caption">
             {tgStatus?.linked
-              ? "현재 텔레그램 계정과 정상적으로 연동되어 있습니다. 실시간 시세 등락 알림 및 매일 투자 요약 브리핑을 메시지로 보내드립니다."
+              ? "텔레그램 계정과 연동되어 있습니다. 아래에서 받을 알림을 선택하세요."
               : "실시간 주가 급변 경보(±5% 돌파 시) 및 매일 장 전/후 투자 브리핑을 텔레그램 메시지로 바로 받아보실 수 있습니다."}
           </p>
 
-          {!tgStatus?.linked && (
+          {/* Notification toggles (shown only when linked) */}
+          {tgStatus?.linked && (
+            <div className="flex flex-col divide-y divide-border/40 rounded-xl border border-border/40 bg-slate-50/50 px-4">
+              <Toggle
+                checked={tgStatus.notifyMorning}
+                onChange={(v) => handleToggle("notifyMorning", v)}
+                label={<span className="flex items-center gap-1.5"><Newspaper size={14} className="text-heading" /> 오전 브리핑</span>}
+                description="매일 오전 8시 · 전일 시장 마감 및 관심종목 뉴스"
+              />
+              <Toggle
+                checked={tgStatus.notifyEvening}
+                onChange={(v) => handleToggle("notifyEvening", v)}
+                label={<span className="flex items-center gap-1.5"><BarChart2 size={14} className="text-heading" /> 마감 브리핑</span>}
+                description="매일 오후 4시 30분 · 당일 마감 결과 및 AI 의견"
+              />
+              <Toggle
+                checked={tgStatus.notifyAlert}
+                onChange={(v) => handleToggle("notifyAlert", v)}
+                label={<span className="flex items-center gap-1.5"><Zap size={14} className="text-heading" /> 급변동 경보</span>}
+                description="장중 관심종목 지수 대비 ±3%p 이상 변동 감지 시"
+              />
+            </div>
+          )}
+
+          {/* Link / Disconnect actions */}
+          {tgStatus?.linked ? (
+            <button
+              onClick={handleDisconnect}
+              disabled={isDisconnecting}
+              className="mt-1 text-[13px] font-medium text-danger underline underline-offset-2 disabled:opacity-50"
+            >
+              {isDisconnecting ? "해제 중..." : "연동 취소하기"}
+            </button>
+          ) : (
             <div className="mt-1 flex flex-col gap-2">
               {linkCode ? (
                 <div className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 p-3.5 text-center border border-border/40">
@@ -167,3 +270,4 @@ export default function ProfilePage() {
     </PageContainer>
   );
 }
+
