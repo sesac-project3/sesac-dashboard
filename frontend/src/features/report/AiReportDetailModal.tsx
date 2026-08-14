@@ -9,6 +9,8 @@ interface AiReportDetailModalProps {
   onClose: () => void;
   report: StockReport | null;
   stockName: string;
+  // 실시간 시세 — 없으면(웹소켓 연결 전 등) report.currentPrice로 fallback.
+  livePrice?: number;
 }
 
 export default function AiReportDetailModal({
@@ -16,6 +18,7 @@ export default function AiReportDetailModal({
   onClose,
   report,
   stockName,
+  livePrice,
 }: AiReportDetailModalProps) {
   // 동종업계 비교 탭 상태 ("opm" | "per" | "pbr" | "roe")
   const [peerTab, setPeerTab] = useState<"opm" | "per" | "pbr" | "roe">("opm");
@@ -58,7 +61,7 @@ export default function AiReportDetailModal({
   // 52주 위치 계산 %
   const week52High = report.week52High ?? 1;
   const week52Low = report.week52Low ?? 0;
-  const currentPrice = report.currentPrice ?? 0;
+  const currentPrice = livePrice ?? report.currentPrice ?? 0;
   const priceBandRatio =
     week52High > week52Low
       ? Math.min(100, Math.max(0, ((currentPrice - week52Low) / (week52High - week52Low)) * 100))

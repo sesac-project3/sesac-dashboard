@@ -1,10 +1,8 @@
-import StockLiveSection from "@/features/stock-quote/StockLiveSection";
+import StockDetailClient from "@/features/stock-quote/StockDetailClient";
 import { API_BASE_URL } from "@/shared/config/env";
 import type { StockReport } from "@/entities/report/types";
 import type { Stock } from "@/entities/stock/types";
 import PageContainer from "@/shared/ui/PageContainer";
-import WeeklySentimentWeather from "@/widgets/stock-weather/WeeklySentimentWeather";
-import StockReportSummaryWidget from "@/features/report/StockReportSummaryWidget";
 
 async function fetchReport(code: string): Promise<StockReport | null> {
   try {
@@ -40,21 +38,12 @@ export default async function StockReportPage({
   return (
     <PageContainer>
       <div className="flex flex-col gap-4 pb-8">
-        <StockLiveSection
+        <StockDetailClient
           stockCode={code}
           stockName={stockName}
           market={stock?.market === "KOSDAQ" ? "코스닥" : "코스피"}
+          report={report}
         />
-
-        <WeeklySentimentWeather stockCode={code} />
-
-        <div>
-          <StockReportSummaryWidget
-            report={report}
-            stockName={stockName}
-            stockCode={code}
-          />
-        </div>
 
         <p className="px-5 text-center text-[12px] leading-[1.5] text-caption">
           본 정보는 투자 참고 자료이며 투자 권유가 아닙니다.

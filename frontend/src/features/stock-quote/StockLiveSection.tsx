@@ -2,20 +2,22 @@
 
 import Card from "@/shared/ui/Card";
 import StockChartPanel from "@/features/stock-chart/StockChartPanel";
-import useStockWebSocket from "@/features/stock-chart/useStockWebSocket";
 import StockQuoteCard from "@/features/stock-quote/StockQuoteCard";
+import type { Candle, CandleInterval, Quote } from "@/entities/stock/chart-types";
 
 export default function StockLiveSection({
   stockCode,
   stockName,
   market,
+  quote,
+  candlesByInterval,
 }: {
   stockCode: string;
   stockName: string;
   market: string;
+  quote: Quote | null;
+  candlesByInterval: Partial<Record<CandleInterval, Candle>>;
 }) {
-  const { quote, candlesByInterval } = useStockWebSocket(stockCode);
-
   return (
     <Card className="flex flex-col border-0 px-0 py-0 shadow-none">
       <StockQuoteCard
