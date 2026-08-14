@@ -7,15 +7,19 @@
 주기보다 살짝 짧게 잡아서, 매 폴링 사이클마다는 대체로 새 값을 받아온다.
 """
 
+import asyncio
 import json
 import logging
-from datetime import datetime
+import re
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.common.exceptions import BusinessException
+from app.common.naver_news import fetch_naver_news_for_stock
+from app.common.openai_client import get_openai_client
 from app.core.kis import kis_token_client
 from app.core.redis import redis_client
 from app.domain.stocks.models import Stock
@@ -23,6 +27,7 @@ from app.domain.stocks.schemas import (
     HomeDashboard,
     InvestorTrend,
     MarketIndexDetail,
+    MarketIssue,
     RankingType,
     StockRankingItem,
 )
@@ -36,8 +41,8 @@ _INDEX_CACHE_KEY = "market:index-details"
 
 # (indexType, 표시 타이틀, KIS 업종코드, KIS 시장구분 플래그)
 _INDEX_DEFS: list[tuple[str, str, str, str]] = [
-    ("KOSPI", "코스피", "0001", "KSP"),
-    ("KOSDAQ", "코스닥", "1001", "KSQ"),
+    ("KOSPI", "KOSPI", "0001", "KSP"),
+    ("KOSDAQ", "KOSDAQ", "1001", "KSQ"),
 ]
 
 
@@ -147,6 +152,160 @@ def _build_rankings(items: list[StockRankingItem]) -> dict[RankingType, list[Sto
         "거래대금": sorted(items, key=lambda x: x.tradingValue, reverse=True),
         "거래량": sorted(items, key=lambda x: x.volume, reverse=True),
     }
+
+
+_MARKET_ISSUE_BUCKET_MINUTES = 15  # 0/15/30/45분 단위로만 갱신 — 화면 하단 "갱신 시간"도 이 경계에 맞춘다
+_MARKET_ISSUE_PRECOMPUTE_LEAD_MINUTES = 3  # 정각 요청이 LLM 호출로 느려지지 않게 경계 3분 전에 미리 생성
+
+# "오늘 지수 자체의 움직임"을 다루는 기사인지 걸러내는 신호 — 숫자+선/포인트/%(예: "7000선",
+# "2.1%") 패턴이거나, 등락을 서술하는 흔한 동사/명사가 제목에 있으면 지수 관련으로 본다.
+# fetch_naver_news_for_stock이 검색 결과 부족하면 무관한 상위 기사로 보충하기도 해서
+# (title에 코스피/코스닥이 아예 없을 수 있음), 이 필터가 그 노이즈를 대부분 걸러준다.
+_INDEX_LEVEL_PATTERN = re.compile(r"\d[,\d]*\s*(선|포인트|%)")
+_INDEX_MOVEMENT_KEYWORDS = ("지수", "상승", "하락", "강세", "약세", "마감", "장중", "급등", "급락", "보합", "출발", "터치", "돌파", "회복")
+
+
+def _current_market_issue_bucket(now: datetime) -> datetime:
+    floored_minute = (now.minute // _MARKET_ISSUE_BUCKET_MINUTES) * _MARKET_ISSUE_BUCKET_MINUTES
+    return now.replace(minute=floored_minute, second=0, microsecond=0)
+
+
+def _market_issue_cache_key(bucket: datetime) -> str:
+    return f"market:ai-issue:{bucket.strftime('%Y%m%d%H%M')}"
+
+
+def _is_todays_index_headline(item: dict, today_str: str, query: str) -> bool:
+    title = item.get("title", "")
+    if query not in title:
+        return False  # 검색어(코스피/코스닥) 자체가 제목에 없으면 보충용 무관 기사
+    if item.get("publishedAt") != today_str:
+        return False  # 오늘 기사만 — "현재 지수 수치"와 무관한 과거 기사 배제
+    return bool(_INDEX_LEVEL_PATTERN.search(title)) or any(kw in title for kw in _INDEX_MOVEMENT_KEYWORDS)
+
+
+def _fetch_market_headlines() -> list[str]:
+    """네이버 뉴스 검색 API로 '코스피'/'코스닥' 각각 최신 10건(현재 시점 기준)을 가져온 뒤,
+    그중 오늘 날짜이면서 실제로 지수 수치/등락을 다루는 기사만 추려서 반환한다.
+    종목 리포트(report_service)와 같은 fetch_naver_news_for_stock을 재사용 — 그 함수는
+    아무 검색어나 받아 제목에 해당 문자열이 포함된 기사를 걸러주므로 지수명 검색에도 그대로 쓸 수 있다."""
+    today_str = datetime.now(KST).strftime("%Y-%m-%d")
+    headlines: list[str] = []
+    for query in ("코스피", "코스닥"):
+        items = fetch_naver_news_for_stock(query, limit=10)
+        headlines.extend(item["title"] for item in items if _is_todays_index_headline(item, today_str, query))
+    return headlines
+
+
+def _generate_market_issue(indices: list[MarketIndexDetail], target_bucket: datetime) -> MarketIssue | None:
+    """[KIS 지수 실데이터] + [오늘 코스피/코스닥 지수 관련 네이버 뉴스]에 있는 사실만으로
+    '국내 주요 이슈' 카드 문구를 만든다. 근거가 하나도 없으면(지수 조회 실패) 지어내지 않고 None.
+    target_bucket: 이 이슈가 "몇 시 몇 분 기준"으로 화면에 표시될지(0/15/30/45분 경계) —
+    사전 생성(precompute) 시엔 아직 그 시각이 안 됐을 수 있어 호출부에서 명시적으로 넘긴다."""
+    if not indices:
+        return None
+    client = get_openai_client()
+    if client is None:
+        return None
+
+    headlines = _fetch_market_headlines()
+    index_facts = [
+        f"{idx.title}: {idx.value:,.2f} ({'+' if idx.change >= 0 else ''}{idx.change:,.2f}, "
+        f"{'+' if idx.changePercent >= 0 else ''}{idx.changePercent:.2f}%), "
+        f"개인 {idx.investors.personal:,.0f}억/외국인 {idx.investors.foreign:,.0f}억/"
+        f"기관 {idx.investors.institution:,.0f}억 순매수"
+        for idx in indices
+    ]
+
+    system = (
+        "너는 증권 앱 홈 화면에 들어가는 '국내 주요 이슈' 카드를 쓰는 애널리스트야. "
+        "아래 [지수 데이터]와 [코스피/코스닥 뉴스 헤드라인]에 없는 수치·사건은 절대 지어내지 마. "
+        "뉴스가 비어 있으면 지수 데이터(등락률/수급)만으로 서술하고 원인을 추측하지 마.\n"
+        "반드시 이 형식으로 출력해:\n"
+        "1번째 줄: 12자 내외의 제목만\n"
+        "2번째 줄부터: 코스피/코스닥 등락과 수급, 뉴스에 실제로 언급된 이슈를 묶어 2~3문장, "
+        "합쳐서 120자 내외. 한자(漢字)는 절대 섞지 마."
+    )
+    user = (
+        "[지수 데이터]\n" + "\n".join(index_facts) + "\n\n[코스피/코스닥 뉴스 헤드라인]\n"
+        + ("\n".join(f"- {h}" for h in headlines) if headlines else "(현재 검색된 뉴스 없음)")
+    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+            max_tokens=300,
+        )
+        lines = [ln.strip() for ln in (response.choices[0].message.content or "").splitlines() if ln.strip()]
+        if len(lines) < 2:
+            return None
+        title = re.sub(r"^[-*•]\s*", "", lines[0]).strip()
+        body = " ".join(re.sub(r"^[-*•]\s*", "", ln).strip() for ln in lines[1:])
+        return MarketIssue(title=title, text=body, updatedAt=target_bucket)
+    except Exception:
+        logger.exception("국내 주요 이슈 LLM 생성 실패")
+        return None
+
+
+def _store_market_issue(bucket: datetime, issue: MarketIssue | None, now: datetime) -> None:
+    cache_key = _market_issue_cache_key(bucket)
+    # 이 버킷이 끝나는(다음 버킷이 시작하는) 시점까지만 캐시 유지 — 사전 생성분도 그 시각까지
+    # 살아있으면 되고, 그 이후엔 자연히 다음 버킷 키로 새로 생성된다.
+    next_bucket = bucket + timedelta(minutes=_MARKET_ISSUE_BUCKET_MINUTES)
+    ttl = max(1, int((next_bucket - now).total_seconds()))
+    # 실패도 빈 문자열로 캐싱해서, 같은 버킷 안에서는 LLM을 반복 호출하지 않는다.
+    redis_client.set(cache_key, json.dumps(issue.model_dump(mode="json")) if issue else "", ex=ttl)
+
+
+def get_market_issue() -> MarketIssue | None:
+    now = datetime.now(KST)
+    bucket = _current_market_issue_bucket(now)
+    cache_key = _market_issue_cache_key(bucket)
+
+    cached = redis_client.get(cache_key)
+    if cached is not None:
+        return MarketIssue.model_validate(json.loads(cached)) if cached else None
+
+    # 정상적으로는 아래로 안 내려온다 — precompute_upcoming_market_issue가 매 버킷 3분 전에
+    # 미리 채워두기 때문. 서버 방금 기동 등으로 캐시가 비어 있을 때만 여기서 즉석 생성한다.
+    issue = _generate_market_issue(fetch_index_details(), bucket)
+    _store_market_issue(bucket, issue, now)
+    return issue
+
+
+def precompute_upcoming_market_issue() -> None:
+    """다음 15분 버킷(:00/:15/:30/:45) 시작 3분 전에 미리 생성해서 캐시에 채워 넣는다.
+    이게 없으면 정각에 맨 처음 들어오는 요청이 LLM 호출 왕복 시간만큼 느려진다 —
+    main.py의 백그라운드 태스크가 버킷마다 이 함수를 한 번씩 호출한다."""
+    now = datetime.now(KST)
+    next_bucket = _current_market_issue_bucket(now) + timedelta(minutes=_MARKET_ISSUE_BUCKET_MINUTES)
+    if redis_client.exists(_market_issue_cache_key(next_bucket)):
+        return  # 이미 준비돼 있음(중복 트리거 방지)
+    issue = _generate_market_issue(fetch_index_details(), next_bucket)
+    _store_market_issue(next_bucket, issue, now)
+
+
+async def run_market_issue_precomputer(stop_event: asyncio.Event) -> None:
+    """버킷 경계(0/15/30/45분) 3분 전마다 precompute_upcoming_market_issue를 한 번씩 돌리는
+    백그라운드 루프. main.py의 lifespan에서 앱 기동 시 태스크로 띄운다(market_subscription.py의
+    subscribe_candle_events와 같은 stop_event 기반 graceful shutdown 패턴)."""
+    while not stop_event.is_set():
+        now = datetime.now(KST)
+        next_boundary = _current_market_issue_bucket(now) + timedelta(minutes=_MARKET_ISSUE_BUCKET_MINUTES)
+        trigger_at = next_boundary - timedelta(minutes=_MARKET_ISSUE_PRECOMPUTE_LEAD_MINUTES)
+        if trigger_at <= now:
+            # 트리거 시각을 이미 지났다(예: 서버가 :13에 막 떠서 :12 트리거를 놓침) — 다음 버킷으로.
+            trigger_at += timedelta(minutes=_MARKET_ISSUE_BUCKET_MINUTES)
+        wait_seconds = max(1.0, (trigger_at - now).total_seconds())
+        try:
+            await asyncio.wait_for(stop_event.wait(), timeout=wait_seconds)
+            break  # stop_event가 켜져서 깬 것 — 서버 종료 중
+        except asyncio.TimeoutError:
+            pass  # 정상적으로 트리거 시각이 됨
+
+        try:
+            await asyncio.to_thread(precompute_upcoming_market_issue)
+        except Exception:
+            logger.exception("국내 주요 이슈 사전 생성 실패")
 
 
 def get_home_dashboard(db: Session) -> HomeDashboard:

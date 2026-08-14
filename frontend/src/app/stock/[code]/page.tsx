@@ -1,28 +1,27 @@
-import StockDetailClient from "@/features/stock-quote/StockDetailClient";
-import { API_BASE_URL } from "@/shared/config/env";
+import StockLiveSection from "@/features/stock-quote/StockLiveSection";
 import type { StockReport } from "@/entities/report/types";
 import type { Stock } from "@/entities/stock/types";
 import PageContainer from "@/shared/ui/PageContainer";
+import WeeklySentimentWeather from "@/widgets/stock-weather/WeeklySentimentWeather";
+import StockReportSummaryWidget from "@/features/report/StockReportSummaryWidget";
+import { getStock } from "@/shared/api/stocks";
+import { getStockReport } from "@/shared/api/reports";
 
-async function fetchReport(code: string): Promise<StockReport | null> {
+type FetchResult<T> = { data: T | null; hasError: boolean };
+
+async function fetchReport(code: string): Promise<FetchResult<StockReport>> {
   try {
-    const res = await fetch(`${API_BASE_URL}/reports/${code}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body.data;
+    return { data: await getStockReport(code), hasError: false };
   } catch {
-    return null;
+    return { data: null, hasError: true };
   }
 }
 
-async function fetchStock(code: string): Promise<Stock | null> {
+async function fetchStock(code: string): Promise<FetchResult<Stock>> {
   try {
-    const res = await fetch(`${API_BASE_URL}/stocks/${code}`, { cache: "no-store" });
-    if (!res.ok) return null;
-    const body = await res.json();
-    return body.data;
+    return { data: await getStock(code), hasError: false };
   } catch {
-    return null;
+    return { data: null, hasError: true };
   }
 }
 
@@ -32,18 +31,33 @@ export default async function StockReportPage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const [report, stock] = await Promise.all([fetchReport(code), fetchStock(code)]);
-  const stockName = stock?.name ?? code;
+  const [reportResult, stockResult] = await Promise.all([fetchReport(code), fetchStock(code)]);
+  if (stockResult.hasError || !stockResult.data) {
+    throw new Error("종목 정보를 불러오지 못했습니다.");
+  }
+
+  const stock = stockResult.data;
+  const stockName = stock.name;
 
   return (
     <PageContainer>
       <div className="flex flex-col gap-4 pb-8">
-        <StockDetailClient
+        <StockLiveSection
           stockCode={code}
           stockName={stockName}
-          market={stock?.market === "KOSDAQ" ? "코스닥" : "코스피"}
-          report={report}
+          market={stock?.market === "KOSDAQ" ? "KOSDAQ" : "KOSPI"}
         />
+
+        <WeeklySentimentWeather stockCode={code} />
+
+        <div>
+          <StockReportSummaryWidget
+            report={reportResult.data}
+            reportError={reportResult.hasError}
+            stockName={stockName}
+            stockCode={code}
+          />
+        </div>
 
         <p className="px-5 text-center text-[12px] leading-[1.5] text-caption">
           본 정보는 투자 참고 자료이며 투자 권유가 아닙니다.

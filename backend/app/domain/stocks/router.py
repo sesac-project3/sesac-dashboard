@@ -8,7 +8,7 @@ from app.common.exceptions import BusinessException, ErrorCode
 from app.common.response import ApiResponse
 from app.core.database import get_db
 from app.domain.stocks.chart_service import get_candles
-from app.domain.stocks.home_dashboard_service import get_home_dashboard
+from app.domain.stocks.home_dashboard_service import get_home_dashboard, get_market_issue
 from app.domain.stocks.models import Stock as StockModel
 from app.domain.stocks.schemas import (
     CandleBackfillResponse,
@@ -16,6 +16,7 @@ from app.domain.stocks.schemas import (
     ChartInterval,
     HomeDashboard,
     MarketIndex,
+    MarketIssue,
     MinuteCandleBackfillResponse,
     Stock,
     WeeklySentimentResponse,
@@ -52,6 +53,14 @@ async def market_websocket(websocket: WebSocket):
 def home_dashboard(db: Session = Depends(get_db)):
     # /{stock_code}보다 먼저 등록해야 한다 — 안 그러면 "home-dashboard"가 종목코드로 잡힘.
     return ApiResponse.ok(get_home_dashboard(db))
+
+
+@router.get("/market-issue", response_model=ApiResponse[MarketIssue | None])
+def market_issue():
+    # /home-dashboard는 5초마다 폴링되는데 이건 LLM 호출(캐시 미스 시)이 껴서 느리다 —
+    # 그 폴링에 얹으면 대시보드 전체가 느려지니 별도 엔드포인트로 분리, 프론트가 드물게 부른다.
+    # /{stock_code}보다 먼저 등록해야 한다 — 안 그러면 "market-issue"가 종목코드로 잡힘.
+    return ApiResponse.ok(get_market_issue())
 
 
 @router.get("/{stock_code}", response_model=ApiResponse[Stock])

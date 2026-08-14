@@ -5,14 +5,13 @@ import { Sparkles, ArrowRight } from "lucide-react";
 import type { StockReport } from "@/entities/report/types";
 import AiReportDetailModal from "./AiReportDetailModal";
 import Card from "@/shared/ui/Card";
+import useStockSubscription from "@/features/stock-chart/useStockSubscription";
 
 interface StockReportSummaryWidgetProps {
   report: StockReport | null;
   stockName: string;
   stockCode: string;
-  // 실시간 시세(quote.currentPrice) — 상세 모달의 "1. 투자 판단 요약"에서
-  // report 생성 시점의 stale한 currentPrice 대신 이 값을 우선 사용한다.
-  livePrice?: number;
+  reportError?: boolean;
 }
 
 const PREPARING_ITEMS = [
@@ -34,9 +33,12 @@ export default function StockReportSummaryWidget({
   report,
   stockName,
   stockCode,
-  livePrice,
+  reportError = false,
 }: StockReportSummaryWidgetProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  // StockLiveSection과 동일한 StockWebSocketProvider 구독을 공유 — 소켓 중복 없이
+  // "1. 투자 판단 요약"의 현재가를 report.currentPrice(생성 시점 값) 대신 실시간으로.
+  const { quote } = useStockSubscription(stockCode);
 
   const judgementText =
     report?.judgement === "BUY" || report?.judgement === "매수"
@@ -65,7 +67,11 @@ export default function StockReportSummaryWidget({
         </div>
 
         {/* 카드 본문 */}
-        {report ? (
+        {reportError ? (
+          <p className="rounded-xl bg-[#FFF5F5] p-3.5 text-xs text-[#D14343]">
+            리포트를 불러오지 못했어요. 잠시 후 다시 시도해주세요.
+          </p>
+        ) : report ? (
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <span className={`px-3 py-1 text-xs font-extrabold rounded-lg ${judgementBadgeStyle}`}>
@@ -110,7 +116,7 @@ export default function StockReportSummaryWidget({
         onClose={() => setIsModalOpen(false)}
         report={report}
         stockName={stockName}
-        livePrice={livePrice}
+        livePrice={quote?.currentPrice}
       />
     </>
   );

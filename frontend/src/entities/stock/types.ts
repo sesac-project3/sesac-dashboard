@@ -45,3 +45,9 @@ export interface HomeDashboard {
   rankings: Record<RankingType, StockRankingItem[]>;
   asOf: string;
 }
+
+export interface MarketIssue {
+  title: string;
+  text: string;
+  updatedAt: string;
+}

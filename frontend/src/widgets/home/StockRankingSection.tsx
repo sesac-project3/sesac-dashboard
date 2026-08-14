@@ -28,6 +28,8 @@ export default function StockRankingSection({
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<RankingType>("상승률");
   const [favorites, setFavorites] = useState<Record<string, boolean>>({});
+  const [isFavoritesLoading, setIsFavoritesLoading] = useState(() => Boolean(getAccessToken()));
+  const [hasFavoritesError, setHasFavoritesError] = useState(false);
   // 종목코드별로 "지금까지 보낸 요청들의 체인"과 "가장 최근에 보낸 요청 번호"를 들고 있는다.
   // 아래 toggleFavorite 주석 참고.
   const requestChain = useRef<Record<string, Promise<unknown>>>({});
@@ -36,11 +38,19 @@ export default function StockRankingSection({
   // 로그인 상태에서만 실제 관심종목 목록을 불러온다 — 비로그인이면 빈 상태로 둔다
   // (LikeButton과 동일 패턴: 하트 누를 때 로그인 안 돼있으면 그때 /login으로 보냄).
   useEffect(() => {
-    if (!getAccessToken()) return;
+    if (!getAccessToken()) {
+      return;
+    }
     getWatchlist()
-      .then((list) => setFavorites(Object.fromEntries(list.map((s) => [s.code, true]))))
+      .then((list) => {
+        setFavorites(Object.fromEntries(list.map((s) => [s.code, true])));
+        setHasFavoritesError(false);
+      })
       .catch(() => {
-        // ponytail: 조회 실패는 조용히 무시 — 하트는 그냥 빈 상태로 보이고 눌러서 다시 시도 가능
+        setHasFavoritesError(true);
+      })
+      .finally(() => {
+        setIsFavoritesLoading(false);
       });
   }, []);
 
@@ -108,6 +118,13 @@ export default function StockRankingSection({
           </button>
         </div>
       </div>
+
+      {isFavoritesLoading && (
+        <p className="text-[11px] text-caption">관심종목을 불러오는 중...</p>
+      )}
+      {hasFavoritesError && (
+        <p className="text-[11px] text-market-down">관심종목을 불러오지 못했어요.</p>
+      )}
 
       {/* 가로 스크롤 탭 버튼 */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">

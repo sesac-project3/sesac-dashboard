@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { X, Sparkles, TrendingUp, AlertTriangle, Newspaper, Scale, BarChart2, Lightbulb } from "lucide-react";
 import type { StockReport, PeerComparisonRow } from "@/entities/report/types";
+import { withTopicParticle } from "@/shared/lib/korean";
 
 interface AiReportDetailModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export default function AiReportDetailModal({
               {stockName} ({report.stockCode})
             </span>
             <h3 className="mt-1 text-xl font-bold leading-snug">
-              {stockName}는 {report.qualitativeSignal ?? "실적 및 퀀트 지표 분석 구간"}
+              {withTopicParticle(stockName)} {report.qualitativeSignal ?? "실적 및 퀀트 지표 분석 구간"}
             </h3>
             <p className="mt-2 text-xs text-blue-100">
               {report.reportDate} 기준 분석
