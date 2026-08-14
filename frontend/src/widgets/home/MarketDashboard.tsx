@@ -10,6 +10,7 @@ import StockRankingSection from "@/widgets/home/StockRankingSection";
 import { getHomeDashboard } from "@/shared/api/stocks";
 import type { HomeDashboard } from "@/entities/stock/types";
 import { MOCK_AI_ISSUE } from "@/shared/mock/homeMockData";
+import useMarketIndexSubscription from "@/features/stock-chart/useMarketIndexSubscription";
 
 function formatAsOf(iso: string) {
   const d = new Date(iso);
@@ -24,6 +25,7 @@ export default function MarketDashboard() {
   const [data, setData] = useState<HomeDashboard | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
+  const { connectionState, updates: liveIndexUpdates } = useMarketIndexSubscription();
   // ponytail: 로딩화면 로직 임시 주석처리 (요청으로 비활성화, 필요해지면 복구)
   // // 최초 로딩 화면: 데이터/에러가 도착하면 진행률 100%를 0.3초 보여준 뒤 실제 화면으로 전환.
   // // doneRef로 "최초 1회"만 걸리게 해서, 5초 주기 자동 갱신 때는 이 화면이 다시 뜨지 않는다.
@@ -49,11 +51,14 @@ export default function MarketDashboard() {
 
   useEffect(() => {
     load();
-    // 5초마다 자동 갱신 — KIS 호출 한도(초당 20건, 앱키는 전체 사용자 공유)를 감안해
-    // 그보다 훨씬 낮은 주기로만 돈다. 새로고침 버튼은 이 interval과 별개로 즉시 재호출.
+  }, [load]);
+
+  useEffect(() => {
+    if (connectionState !== "closed") return;
+    // WebSocket 장애 시에만 REST로 전체 대시보드 데이터를 보완한다.
     const interval = setInterval(load, 5000);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [connectionState, load]);
 
   // useEffect(() => {
   //   if ((data || error) && !initialLoadHandledRef.current) {
@@ -150,7 +155,19 @@ export default function MarketDashboard() {
     <PageContainer>
       <div className="flex flex-col gap-4 py-4 pb-12">
         {/* 1. 코스피 / 코스닥 지수 캐러셀 & 수급 카드 */}
-        <MarketIndexCarousel indices={data.indices} />
+        <MarketIndexCarousel
+          indices={data.indices.map((index) => {
+            const update = liveIndexUpdates[index.indexType];
+            if (!update) return index;
+            return {
+              ...index,
+              value: update.value,
+              change: update.change,
+              changePercent: update.changeRate,
+              isUp: update.changeDirection === "UP",
+            };
+          })}
+        />
 
         {/* 2. 국내 주요 이슈 AI 요약 카드 */}
         <AiMarketIssueCard

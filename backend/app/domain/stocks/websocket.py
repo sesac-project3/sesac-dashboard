@@ -10,6 +10,7 @@ from app.common.security import decode_access_token
 from app.domain.stocks.candle_store import (
     MARKET_INTERVALS,
     get_candle_snapshot,
+    get_index_snapshot,
     get_quote_snapshot,
 )
 from app.domain.stocks.market_subscription import market_websocket_manager
@@ -17,6 +18,7 @@ from app.core.kis import kis_token_client
 
 logger = logging.getLogger(__name__)
 KST = ZoneInfo("Asia/Seoul")
+INDEX_CODES = {"0001": "KOSPI", "1001": "KOSDAQ"}
 
 
 def _to_int(value: object) -> int:
@@ -96,6 +98,7 @@ async def handle_market_websocket(websocket: WebSocket) -> None:
             message = await websocket.receive_json()
             message_type = message.get("type")
             stock_code = str(message.get("stockCode", "")).strip()
+            index_code = str(message.get("indexCode", "")).strip()
             if message_type in {"subscribe", "unsubscribe"} and stock_code:
                 logger.info(
                     "Market WS subscription request: user_id=%s action=%s stock_code=%s",
@@ -140,6 +143,32 @@ async def handle_market_websocket(websocket: WebSocket) -> None:
                     stock_code,
                     len(snapshots),
                     quote_snapshot is not None,
+                )
+            elif message_type in {"subscribe_index", "unsubscribe_index"} and index_code in INDEX_CODES:
+                logger.info(
+                    "Market WS index subscription request: user_id=%s action=%s index_code=%s",
+                    user_id,
+                    message_type,
+                    index_code,
+                )
+                if message_type == "subscribe_index":
+                    await market_websocket_manager.subscribe_index(websocket, index_code)
+                    snapshot = await get_index_snapshot(index_code)
+                else:
+                    await market_websocket_manager.unsubscribe_index(websocket, index_code)
+                    snapshot = None
+                await websocket.send_json({
+                    "type": "index_subscribed" if message_type == "subscribe_index" else "index_unsubscribed",
+                    "indexCode": index_code,
+                })
+                if snapshot is not None:
+                    await websocket.send_json({**snapshot, "type": "index_snapshot"})
+                logger.info(
+                    "Market WS index subscription response: user_id=%s action=%s index_code=%s snapshot=%s",
+                    user_id,
+                    message_type,
+                    index_code,
+                    snapshot is not None,
                 )
             else:
                 logger.warning("Market WS invalid message: user_id=%s type=%s", user_id, message_type)

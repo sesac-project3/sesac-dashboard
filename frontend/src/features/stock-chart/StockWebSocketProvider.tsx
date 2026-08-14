@@ -12,18 +12,20 @@ import {
 } from "react";
 import { API_BASE_URL } from "@/shared/config/env";
 import { AUTH_TOKEN_CHANGED_EVENT, getAccessToken } from "@/shared/api/base";
-import type { CandleWebSocketMessage } from "@/entities/stock/chart-types";
+import type { CandleWebSocketMessage, IndexMessage } from "@/entities/stock/chart-types";
 
 const RECONNECT_DELAY_MS = 2_000;
 const AUTH_TIMEOUT_MS = 5_000;
 
 export type StockWebSocketConnectionState = "idle" | "connecting" | "open" | "closed";
 type MessageListener = (message: CandleWebSocketMessage) => void;
-type OutgoingMessage = { type: string; stockCode?: string; accessToken?: string };
+type IndexMessageListener = (message: IndexMessage) => void;
+type OutgoingMessage = { type: string; stockCode?: string; indexCode?: string; accessToken?: string };
 
 interface StockWebSocketContextValue {
   connectionState: StockWebSocketConnectionState;
   subscribe: (stockCode: string, listener: MessageListener) => () => void;
+  subscribeIndex: (indexCode: string, listener: IndexMessageListener) => () => void;
 }
 
 const StockWebSocketContext = createContext<StockWebSocketContextValue | null>(null);
@@ -43,6 +45,7 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
   const tokenRef = useRef<string | null | undefined>(undefined);
   const authenticatedRef = useRef(false);
   const subscriptionsRef = useRef(new Map<string, Set<MessageListener>>());
+  const indexSubscriptionsRef = useRef(new Map<string, Set<IndexMessageListener>>());
   const intentionalCloseRef = useRef(false);
   const connectRef = useRef<() => void>(() => undefined);
   const [connectionState, setConnectionState] = useState<StockWebSocketConnectionState>("idle");
@@ -59,7 +62,11 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
   const send = useCallback((message: OutgoingMessage) => {
     const socket = socketRef.current;
     if (socket?.readyState === WebSocket.OPEN) {
-      console.log("[stock-ws] send", { type: message.type, stockCode: message.stockCode });
+      console.log("[stock-ws] send", {
+        type: message.type,
+        stockCode: message.stockCode,
+        indexCode: message.indexCode,
+      });
       socket.send(JSON.stringify(message));
     }
   }, []);
@@ -78,6 +85,23 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
       if (current.size > 0) return;
       subscriptionsRef.current.delete(stockCode);
       if (authenticatedRef.current) send({ type: "unsubscribe", stockCode });
+    };
+  }, [send]);
+
+  const subscribeIndex = useCallback((indexCode: string, listener: IndexMessageListener) => {
+    const listeners = indexSubscriptionsRef.current.get(indexCode) ?? new Set<IndexMessageListener>();
+    const wasEmpty = listeners.size === 0;
+    listeners.add(listener);
+    indexSubscriptionsRef.current.set(indexCode, listeners);
+    if (wasEmpty && authenticatedRef.current) send({ type: "subscribe_index", indexCode });
+
+    return () => {
+      const current = indexSubscriptionsRef.current.get(indexCode);
+      if (!current) return;
+      current.delete(listener);
+      if (current.size > 0) return;
+      indexSubscriptionsRef.current.delete(indexCode);
+      if (authenticatedRef.current) send({ type: "unsubscribe_index", indexCode });
     };
   }, [send]);
 
@@ -121,9 +145,9 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
     };
 
     socket.onmessage = ({ data }: MessageEvent<string>) => {
-      let message: CandleWebSocketMessage | { type: "authenticated" };
+      let message: CandleWebSocketMessage | IndexMessage | { type: "authenticated" };
       try {
-        message = JSON.parse(data) as CandleWebSocketMessage | { type: "authenticated" };
+        message = JSON.parse(data) as CandleWebSocketMessage | IndexMessage | { type: "authenticated" };
       } catch {
         return;
       }
@@ -135,6 +159,19 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
         authenticatedRef.current = true;
         setConnectionState("open");
         for (const stockCode of subscriptionsRef.current.keys()) send({ type: "subscribe", stockCode });
+        for (const indexCode of indexSubscriptionsRef.current.keys()) send({ type: "subscribe_index", indexCode });
+        return;
+      }
+
+      if (message.type === "index_snapshot" || message.type === "index_update") {
+        console.log("[stock-ws] event", {
+          type: message.type,
+          indexType: message.indexType,
+          indexCode: message.indexCode,
+        });
+        for (const listener of indexSubscriptionsRef.current.get(message.indexCode)?.values() ?? []) {
+          listener(message);
+        }
         return;
       }
 
@@ -197,7 +234,10 @@ export default function StockWebSocketProvider({ children }: { children: ReactNo
     };
   }, [connect, disconnect, scheduleConnect]);
 
-  const value = useMemo(() => ({ connectionState, subscribe }), [connectionState, subscribe]);
+  const value = useMemo(
+    () => ({ connectionState, subscribe, subscribeIndex }),
+    [connectionState, subscribe, subscribeIndex],
+  );
 
   return <StockWebSocketContext.Provider value={value}>{children}</StockWebSocketContext.Provider>;
 }

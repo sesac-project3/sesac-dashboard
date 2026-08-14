@@ -11,13 +11,15 @@ from sqlalchemy import select
 from app.core.database import SessionLocal
 from app.core.kis import kis_token_client
 from app.domain.stocks.models import Stock, StockDailyCandle
-from app.domain.stocks.candle_store import publish_candle, publish_quote, store_minute_candle
+from app.domain.stocks.candle_store import publish_candle, publish_index, publish_quote, store_minute_candle
 from app.domain.stocks.market_subscription import MarketWebSocketManager
 
 logger = logging.getLogger(__name__)
 
 KIS_WEBSOCKET_PATH = "/tryitout"
 KIS_TRADE_TR_ID = "H0STCNT0"
+KIS_INDEX_TR_ID = "H0UPCNT0"
+INDEX_TYPES = {"0001": "KOSPI", "1001": "KOSDAQ"}
 KST = ZoneInfo("Asia/Seoul")
 
 
@@ -104,6 +106,7 @@ class KisMarketStream:
         self._connection = None
         self._task: asyncio.Task[None] | None = None
         self._subscribed_codes: set[str] = set()
+        self._subscribed_index_codes: set[str] = set()
         self._candles: dict[str, LiveMinuteCandle] = {}
         self._aggregate_candles: dict[tuple[str, str], LiveAggregateCandle] = {}
         self._initialized_codes: set[str] = set()
@@ -122,7 +125,16 @@ class KisMarketStream:
                 self._task = asyncio.create_task(self._run())
             connection = self._connection
             if connection is not None:
-                await self._send_subscription(connection, stock_code, "1")
+                await self._send_subscription(connection, KIS_TRADE_TR_ID, stock_code, "1")
+
+    async def subscribe_index(self, index_code: str) -> None:
+        async with self._lock:
+            self._subscribed_index_codes.add(index_code)
+            if self._task is None or self._task.done():
+                self._task = asyncio.create_task(self._run())
+            connection = self._connection
+            if connection is not None:
+                await self._send_subscription(connection, KIS_INDEX_TR_ID, index_code, "1")
 
     def restore_candle(self, stock_code: str, message: dict[str, object]) -> None:
         candle = message.get("candle")
@@ -161,15 +173,25 @@ class KisMarketStream:
         async with self._lock:
             self._subscribed_codes.discard(stock_code)
             connection = self._connection
-            has_subscriptions = bool(self._subscribed_codes)
+            has_subscriptions = bool(self._subscribed_codes or self._subscribed_index_codes)
         if connection is not None:
-            await self._send_subscription(connection, stock_code, "2")
+            await self._send_subscription(connection, KIS_TRADE_TR_ID, stock_code, "2")
             if not has_subscriptions:
                 await connection.close()
         self._candles.pop(stock_code, None)
         for interval in ("DAILY", "WEEKLY", "MONTHLY", "MINUTE_15"):
             self._aggregate_candles.pop((stock_code, interval), None)
         self._initialized_codes.discard(stock_code)
+
+    async def unsubscribe_index(self, index_code: str) -> None:
+        async with self._lock:
+            self._subscribed_index_codes.discard(index_code)
+            connection = self._connection
+            has_subscriptions = bool(self._subscribed_codes or self._subscribed_index_codes)
+        if connection is not None:
+            await self._send_subscription(connection, KIS_INDEX_TR_ID, index_code, "2")
+            if not has_subscriptions:
+                await connection.close()
 
     async def _run(self) -> None:
         # 여기서 재연결을 트리거하는 건 실제 연결 끊김(finally의 should_retry)뿐이다 —
@@ -188,11 +210,14 @@ class KisMarketStream:
                 self._connection = connection
                 async with self._lock:
                     codes = list(self._subscribed_codes)
-                if not codes:
+                    index_codes = list(self._subscribed_index_codes)
+                if not codes and not index_codes:
                     await connection.close()
                     return
                 for code in codes:
-                    await self._send_subscription(connection, code, "1")
+                    await self._send_subscription(connection, KIS_TRADE_TR_ID, code, "1")
+                for index_code in index_codes:
+                    await self._send_subscription(connection, KIS_INDEX_TR_ID, index_code, "1")
                 async for raw in connection:
                     await self._handle_message(raw)
         except asyncio.CancelledError:
@@ -204,12 +229,12 @@ class KisMarketStream:
         finally:
             self._connection = None
             async with self._lock:
-                should_retry = bool(self._subscribed_codes)
+                should_retry = bool(self._subscribed_codes or self._subscribed_index_codes)
             if should_retry:
                 await asyncio.sleep(2)
                 self._task = asyncio.create_task(self._run())
 
-    async def _send_subscription(self, connection, stock_code: str, tr_type: str) -> None:
+    async def _send_subscription(self, connection, tr_id: str, tr_key: str, tr_type: str) -> None:
         await connection.send(json.dumps({
             "header": {
                 "approval_key": await asyncio.to_thread(kis_token_client.approval_key),
@@ -217,7 +242,7 @@ class KisMarketStream:
                 "tr_type": tr_type,
                 "content-type": "utf-8",
             },
-            "body": {"input": {"tr_id": KIS_TRADE_TR_ID, "tr_key": stock_code}},
+            "body": {"input": {"tr_id": tr_id, "tr_key": tr_key}},
         }))
 
     async def _handle_message(self, raw: str | bytes) -> None:
@@ -226,9 +251,14 @@ class KisMarketStream:
         if not raw or raw[0] not in {"0", "1"}:
             return
         fields = raw.split("|")
-        if len(fields) < 4 or fields[1] != KIS_TRADE_TR_ID:
+        if len(fields) < 4:
             return
         values = fields[3].split("^")
+        if fields[1] == KIS_INDEX_TR_ID:
+            await self._handle_index_message(values)
+            return
+        if fields[1] != KIS_TRADE_TR_ID:
+            return
         if len(values) < 14:
             return
         stock_code = values[0]
@@ -284,6 +314,32 @@ class KisMarketStream:
             else:
                 aggregate.update(price, trade_volume, cumulative_volume)
             await publish_candle(stock_code, aggregate.as_message(stock_code))
+
+    async def _handle_index_message(self, values: list[str]) -> None:
+        if len(values) < 10:
+            return
+        index_code = values[0]
+        index_type = INDEX_TYPES.get(index_code)
+        if index_type is None:
+            return
+        value = _to_float(values[2])
+        if value <= 0:
+            return
+        change = abs(_to_float(values[4]))
+        change_rate = abs(_to_float(values[9]))
+        if values[3] in {"4", "5"}:
+            change = -change
+            change_rate = -change_rate
+        await publish_index(index_code, {
+            "type": "index_update",
+            "indexType": index_type,
+            "indexCode": index_code,
+            "value": value,
+            "change": change,
+            "changeRate": change_rate,
+            "changeDirection": _change_direction(int(change)),
+            "updatedAt": datetime.now(KST).isoformat(),
+        })
 
     async def _initialize_candles(self, stock_code: str) -> None:
         try:

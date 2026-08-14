@@ -47,4 +47,15 @@ export interface QuoteMessage extends Quote {
   type: "quote_update" | "quote_snapshot";
 }
 
+export interface IndexMessage {
+  type: "index_snapshot" | "index_update";
+  indexType: "KOSPI" | "KOSDAQ";
+  indexCode: string;
+  value: number;
+  change: number;
+  changeRate: number;
+  changeDirection: "UP" | "DOWN" | "EVEN";
+  updatedAt: string;
+}
+
 export type CandleWebSocketMessage = CandleSnapshotMessage | CandleUpdateMessage | QuoteMessage;
