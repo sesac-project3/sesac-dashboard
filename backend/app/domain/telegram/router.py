@@ -2,6 +2,7 @@ import secrets
 import string
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, BackgroundTasks
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -42,8 +43,46 @@ def get_telegram_status(user_id: int = Depends(get_current_user_id), db: Session
     
     return ApiResponse.ok({
         "linked": user.telegram_chat_id is not None,
-        "botUsername": settings.telegram_bot_username
+        "botUsername": settings.telegram_bot_username,
+        "notifyMorning": user.notify_morning,
+        "notifyEvening": user.notify_evening,
+        "notifyAlert": user.notify_alert,
     })
+
+
+class TelegramSettingsRequest(BaseModel):
+    notifyMorning: bool
+    notifyEvening: bool
+    notifyAlert: bool
+
+
+@router.put("/settings", response_model=ApiResponse[str])
+def update_telegram_settings(
+    body: TelegramSettingsRequest,
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    user = db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자 없음")
+    user.notify_morning = body.notifyMorning
+    user.notify_evening = body.notifyEvening
+    user.notify_alert = body.notifyAlert
+    db.commit()
+    return ApiResponse.ok("알림 설정이 저장되었습니다.")
+
+
+@router.delete("/disconnect", response_model=ApiResponse[str])
+def disconnect_telegram(
+    user_id: int = Depends(get_current_user_id),
+    db: Session = Depends(get_db)
+):
+    user = db.scalar(select(User).where(User.id == user_id))
+    if not user:
+        raise HTTPException(status_code=404, detail="사용자 없음")
+    user.telegram_chat_id = None
+    db.commit()
+    return ApiResponse.ok("텔레그램 연동이 해제되었습니다.")
 
 @router.post("/link-code", response_model=ApiResponse[dict])
 def create_link_code(user_id: int = Depends(get_current_user_id)):
@@ -122,18 +161,18 @@ async def telegram_webhook(request: Request, background_tasks: BackgroundTasks, 
 @router.post("/test/morning-briefing", response_model=ApiResponse[str])
 async def test_morning_briefing(db: Session = Depends(get_db)):
     from app.domain.telegram.scheduler import send_morning_briefing
-    await send_morning_briefing(db)
+    await send_morning_briefing(db, force=True)
     return ApiResponse.ok("오전 브리핑 모의 발송이 완료되었습니다.")
 
 @router.post("/test/evening-briefing", response_model=ApiResponse[str])
 async def test_evening_briefing(db: Session = Depends(get_db)):
     from app.domain.telegram.scheduler import send_evening_briefing
-    await send_evening_briefing(db)
+    await send_evening_briefing(db, force=True)
     return ApiResponse.ok("오후 브리핑 모의 발송이 완료되었습니다.")
 
 @router.post("/test/price-alert", response_model=ApiResponse[str])
 async def test_price_alert(db: Session = Depends(get_db)):
     from app.domain.telegram.scheduler import check_price_alerts
-    await check_price_alerts(db)
+    await check_price_alerts(db, force=True)
     return ApiResponse.ok("주가 지수대비 비교 급변동 경보 모의 체크 및 발송이 완료되었습니다.")
 

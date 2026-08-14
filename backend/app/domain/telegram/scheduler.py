@@ -18,158 +18,186 @@ from app.domain.telegram.router import send_telegram_message
 logger = logging.getLogger(__name__)
 KST = ZoneInfo("Asia/Seoul")
 
-async def send_morning_briefing(db: Session):
+async def send_morning_briefing(db: Session, force: bool = False):
     logger.info("[Telegram Scheduler] Dispatching Morning Briefing (08:00)...")
     today_date = date.today()
     
-    # Fetch index details (KOSPI/KOSDAQ)
     indices = fetch_index_details()
-    kospi_text = "N/A"
-    kosdaq_text = "N/A"
+    kospi_val, kosdaq_val = None, None
     for idx in indices:
         if idx.indexType == "KOSPI":
-            kospi_text = f"{idx.value:,.2f} ({'+' if idx.isUp else ''}{idx.changePercent:.2f}%)"
+            kospi_val = idx
         elif idx.indexType == "KOSDAQ":
-            kosdaq_text = f"{idx.value:,.2f} ({'+' if idx.isUp else ''}{idx.changePercent:.2f}%)"
+            kosdaq_val = idx
+
+    def fmt_index(idx):
+        if not idx:
+            return "N/A"
+        arrow = "▲" if idx.isUp else "▼"
+        sign = "+" if idx.isUp else ""
+        return f"{idx.value:,.2f}  {arrow} {sign}{idx.changePercent:.2f}%"
 
     stock_items = fetch_stock_ranking_items(db)
     price_by_code = {item.code: item for item in stock_items}
 
-    # Find all users linked to Telegram
     users = db.scalars(select(User).where(User.telegram_chat_id != None)).all()
     for user in users:
-        # Check if already sent
-        existing = db.scalar(
-            select(TelegramNotification).where(
-                TelegramNotification.user_id == user.id,
-                TelegramNotification.notification_type == "조간_브리핑",
-                TelegramNotification.sent_date == today_date
+        if not force:
+            existing = db.scalar(
+                select(TelegramNotification).where(
+                    TelegramNotification.user_id == user.id,
+                    TelegramNotification.notification_type == "조간_브리핑",
+                    TelegramNotification.sent_date == today_date
+                )
             )
-        )
-        if existing:
+            if existing:
+                continue
+
+        # Skip if user has disabled morning briefing
+        if not user.notify_morning:
             continue
 
-        # Get user's watchlist
         watchlist_stocks = db.scalars(
             select(Stock).join(Watchlist, Watchlist.stock_id == Stock.id).where(Watchlist.user_id == user.id)
         ).all()
 
-        watchlist_text = ""
+        watchlist_lines = ""
         if watchlist_stocks:
             from urllib.parse import quote
-            watchlist_text = "<b>2. 관심종목 개장 전 뉴스 검색</b>\n"
             for stock in watchlist_stocks:
                 item = price_by_code.get(stock.code)
                 price_str = f"{item.price:,.0f}원" if item else "가격정보 없음"
                 naver_url = f"https://search.naver.com/search.naver?where=news&query={quote(stock.name)}"
-                watchlist_text += (
-                    f"• <b>{stock.name}({stock.code})</b>: 전일가 {price_str}\n"
-                    f"  📰 <a href=\"{naver_url}\">네이버 뉴스 검색</a>\n"
+                watchlist_lines += (
+                    f"  <b>{stock.name}</b>  <code>{stock.code}</code>\n"
+                    f"  💵 전일가 {price_str}  |  📰 <a href=\"{naver_url}\">뉴스 검색</a>\n\n"
                 )
         else:
-            watchlist_text = "<b>2. 관심종목 정보</b>\n등록된 관심종목이 없습니다. 웹 대시보드에서 관심종목을 등록하시면 분석 알림을 받으실 수 있습니다.\n"
+            watchlist_lines = "  등록된 관심종목이 없습니다.\n"
 
         briefing_text = (
-            f"🌤️ <b>[오전 시장 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
-            f"국내 증시 개장 전, 전일 마감 정보 및 관심종목 최신 뉴스 확인 링크입니다.\n\n"
-            f"<b>1. 전일 국내 증시 마감</b>\n"
-            f"• 코스피: {kospi_text}\n"
-            f"• 코스닥: {kosdaq_text}\n\n"
-            f"{watchlist_text}\n"
-            f"<b>3. 오늘의 투자 관전 포인트</b>\n"
-            f"• 개장 전 관심종목 관련 최신 뉴스를 확인하고 오늘 장 개장 시 변동성에 유의하며 캔들을 예의주시하세요.\n\n"
-            f"오늘도 성공적인 투자 하루 되세요! 👍"
+            f"🌅 <b>오전 시장 브리핑</b>\n"
+            f"<i>{today_date.strftime('%Y년 %m월 %d일')} · 개장 전 요약</i>\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📊 <b>전일 국내 증시 마감</b>\n"
+            f"  코스피  {fmt_index(kospi_val)}\n"
+            f"  코스닥  {fmt_index(kosdaq_val)}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"👀 <b>관심종목 개장 전 체크</b>\n\n"
+            f"{watchlist_lines}"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"💡 개장 전 최신 뉴스를 확인하고 시황 변동성에 대비하세요.\n"
+            f"오늘도 성공적인 투자 되세요! 🚀"
         )
-
 
         try:
             await send_telegram_message(user.telegram_chat_id, briefing_text)
-            # Log dispatch to prevent duplicate sends
-            log_entry = TelegramNotification(
-                user_id=user.id,
-                notification_type="조간_브리핑",
-                sent_date=today_date
-            )
-            db.add(log_entry)
-            db.commit()
+            if not force:
+                log_entry = TelegramNotification(
+                    user_id=user.id,
+                    notification_type="조간_브리핑",
+                    sent_date=today_date
+                )
+                db.add(log_entry)
+                db.commit()
         except Exception as e:
             logger.error(f"[Telegram Scheduler] Failed to send morning briefing to user {user.id}: {e}")
             db.rollback()
 
-async def send_evening_briefing(db: Session):
+async def send_evening_briefing(db: Session, force: bool = False):
     logger.info("[Telegram Scheduler] Dispatching Evening Briefing (16:30)...")
     today_date = date.today()
     
     indices = fetch_index_details()
-    kospi_text = "N/A"
-    kosdaq_text = "N/A"
+    kospi_val, kosdaq_val = None, None
     for idx in indices:
         if idx.indexType == "KOSPI":
-            kospi_text = f"{idx.value:,.2f} ({'+' if idx.isUp else ''}{idx.changePercent:.2f}%)"
+            kospi_val = idx
         elif idx.indexType == "KOSDAQ":
-            kosdaq_text = f"{idx.value:,.2f} ({'+' if idx.isUp else ''}{idx.changePercent:.2f}%)"
+            kosdaq_val = idx
+
+    def fmt_index(idx):
+        if not idx:
+            return "N/A"
+        arrow = "▲" if idx.isUp else "▼"
+        sign = "+" if idx.isUp else ""
+        return f"{idx.value:,.2f}  {arrow} {sign}{idx.changePercent:.2f}%"
 
     stock_items = fetch_stock_ranking_items(db)
     price_by_code = {item.code: item for item in stock_items}
 
     users = db.scalars(select(User).where(User.telegram_chat_id != None)).all()
     for user in users:
-        existing = db.scalar(
-            select(TelegramNotification).where(
-                TelegramNotification.user_id == user.id,
-                TelegramNotification.notification_type == "마감_브리핑",
-                TelegramNotification.sent_date == today_date
+        if not force:
+            existing = db.scalar(
+                select(TelegramNotification).where(
+                    TelegramNotification.user_id == user.id,
+                    TelegramNotification.notification_type == "마감_브리핑",
+                    TelegramNotification.sent_date == today_date
+                )
             )
-        )
-        if existing:
+            if existing:
+                continue
+
+        # Skip if user has disabled evening briefing
+        if not user.notify_evening:
             continue
 
         watchlist_stocks = db.scalars(
             select(Stock).join(Watchlist, Watchlist.stock_id == Stock.id).where(Watchlist.user_id == user.id)
         ).all()
 
-        watchlist_text = ""
+        watchlist_lines = ""
         if watchlist_stocks:
-            watchlist_text = "<b>2. 관심종목 마감 결과 & AI 의견</b>\n"
             for stock in watchlist_stocks:
                 item = price_by_code.get(stock.code)
                 report = report_service.get_stock_report(db, stock.code)
                 judgement = report.judgement if report else "관망"
                 if item:
+                    arrow = "▲" if item.changePercent >= 0 else "▼"
                     sign = "+" if item.changePercent >= 0 else ""
-                    watchlist_text += (
-                        f"• <b>{stock.name}({stock.code})</b>: "
-                        f"{item.price:,.0f}원 ({sign}{item.changePercent:.2f}%) — <b>AI 의견: {judgement}</b>\n"
+                    ai_emoji = "🟢" if "매수" in judgement else ("🔴" if "매도" in judgement else "🟡")
+                    watchlist_lines += (
+                        f"  <b>{stock.name}</b>  <code>{stock.code}</code>\n"
+                        f"  💵 {item.price:,.0f}원  {arrow} {sign}{item.changePercent:.2f}%\n"
+                        f"  {ai_emoji} AI 의견: <b>{judgement}</b>\n\n"
                     )
                 else:
-                    watchlist_text += f"• <b>{stock.name}({stock.code})</b>: 가격 정보 없음\n"
+                    watchlist_lines += f"  <b>{stock.name}</b>  <code>{stock.code}</code>\n  가격 정보 없음\n\n"
         else:
-            watchlist_text = "<b>2. 관심종목 정보</b>\n등록된 관심종목이 없습니다.\n"
+            watchlist_lines = "  등록된 관심종목이 없습니다.\n"
 
         briefing_text = (
-            f"🔔 <b>[장 마감 브리핑] {today_date.strftime('%Y년 %m월 %d일')}</b>\n\n"
-            f"오늘 국내 증시 마감 결과 및 관심종목 요약입니다.\n\n"
-            f"<b>1. 시장 지수 마감</b>\n"
-            f"• 코스피: {kospi_text}\n"
-            f"• 코스닥: {kosdaq_text}\n\n"
-            f"{watchlist_text}\n"
-            f"상세 분석 내용 및 관련 핵심 뉴스는 대시보드 화면을 통해 확인해 주세요."
+            f"🌆 <b>장 마감 브리핑</b>\n"
+            f"<i>{today_date.strftime('%Y년 %m월 %d일')} · 마감 결과 요약</i>\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📊 <b>오늘 시장 지수 마감</b>\n"
+            f"  코스피  {fmt_index(kospi_val)}\n"
+            f"  코스닥  {fmt_index(kosdaq_val)}\n\n"
+            f"━━━━━━━━━━━━━━━━━━━\n\n"
+            f"📋 <b>관심종목 마감 결과 &amp; AI 의견</b>\n\n"
+            f"{watchlist_lines}"
+            f"━━━━━━━━━━━━━━━━━━━\n"
+            f"💡 상세 분석은 대시보드에서 확인하세요.\n"
+            f"내일도 성공적인 투자 되세요! 🙌"
         )
 
         try:
             await send_telegram_message(user.telegram_chat_id, briefing_text)
-            log_entry = TelegramNotification(
-                user_id=user.id,
-                notification_type="마감_브리핑",
-                sent_date=today_date
-            )
-            db.add(log_entry)
-            db.commit()
+            if not force:
+                log_entry = TelegramNotification(
+                    user_id=user.id,
+                    notification_type="마감_브리핑",
+                    sent_date=today_date
+                )
+                db.add(log_entry)
+                db.commit()
         except Exception as e:
             logger.error(f"[Telegram Scheduler] Failed to send evening briefing to user {user.id}: {e}")
             db.rollback()
 
-async def check_price_alerts(db: Session):
+
+async def check_price_alerts(db: Session, force: bool = False):
     logger.info("[Telegram Scheduler] Checking price alerts...")
     today_date = date.today()
 
@@ -192,6 +220,10 @@ async def check_price_alerts(db: Session):
             if not item:
                 continue
 
+            # Skip if user has disabled price alerts
+            if not user.notify_alert:
+                continue
+
             # Check relative change vs market index
             market_type = "KOSDAQ" if stock.market == "KOSDAQ" else "KOSPI"
             index_change = index_change_by_market.get(market_type, 0.0)
@@ -201,8 +233,12 @@ async def check_price_alerts(db: Session):
             exceeds_relative = abs(relative_change) >= 3.0
             exceeds_absolute = abs(item.changePercent) >= 5.0
 
-            if exceeds_relative or exceeds_absolute:
-                # Check if already alert sent today for this stock to this user
+            # In force mode (test), skip threshold check; otherwise apply it
+            if not force and not (exceeds_relative or exceeds_absolute):
+                continue
+
+            # Check if already alert sent today for this stock to this user (skip when force=True)
+            if not force:
                 existing = db.scalar(
                     select(TelegramNotification).where(
                         TelegramNotification.user_id == user.id,
@@ -214,19 +250,26 @@ async def check_price_alerts(db: Session):
                 if existing:
                     continue
 
-                sign = "+" if item.changePercent >= 0 else ""
-                diff_sign = "+" if relative_change >= 0 else ""
-                
-                alert_text = (
-                    f"🚨 <b>[지수대비 급변동 경보]</b>\n\n"
-                    f"관심종목 <b>{stock.name}({stock.code})</b>가 지수 대비 큰 변동을 기록하고 있습니다!\n\n"
-                    f"• 현재가: {item.price:,.0f}원\n"
-                    f"• 당일 등락률: {sign}{item.changePercent:.2f}%\n"
-                    f"• {market_type} 지수대비: {diff_sign}{relative_change:.2f}%p {'아웃퍼폼!' if relative_change >= 0 else '언더퍼폼'}"
-                )
+            direction = "📈 급등" if relative_change >= 0 else "📉 급락"
+            arrow = "▲" if item.changePercent >= 0 else "▼"
+            sign = "+" if item.changePercent >= 0 else ""
+            diff_sign = "+" if relative_change >= 0 else ""
+            perf_label = "아웃퍼폼 🔥" if relative_change >= 0 else "언더퍼폼 🧊"
 
-                try:
-                    await send_telegram_message(user.telegram_chat_id, alert_text)
+            alert_text = (
+                f"🚨 <b>관심종목 급변동 경보</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━\n\n"
+                f"{direction}  <b>{stock.name}</b>  <code>{stock.code}</code>\n\n"
+                f"💵 현재가: <b>{item.price:,.0f}원</b>\n"
+                f"  {arrow} 당일 등락: <b>{sign}{item.changePercent:.2f}%</b>\n"
+                f"  📊 {market_type} 지수 대비: <b>{diff_sign}{relative_change:.2f}%p</b>  →  {perf_label}\n\n"
+                f"━━━━━━━━━━━━━━━━━━━\n"
+                f"💡 지수 대비 큰 변동이 감지되었습니다. 대시보드에서 상세 내용을 확인하세요."
+            )
+
+            try:
+                await send_telegram_message(user.telegram_chat_id, alert_text)
+                if not force:
                     log_entry = TelegramNotification(
                         user_id=user.id,
                         notification_type="시그널",
@@ -235,9 +278,10 @@ async def check_price_alerts(db: Session):
                     )
                     db.add(log_entry)
                     db.commit()
-                except Exception as e:
-                    logger.error(f"[Telegram Scheduler] Failed to send price alert for user {user.id}, stock {stock.code}: {e}")
-                    db.rollback()
+            except Exception as e:
+                logger.error(f"[Telegram Scheduler] Failed to send price alert for user {user.id}, stock {stock.code}: {e}")
+                db.rollback()
+
 
 async def run_telegram_scheduler(stop_event: asyncio.Event):
     logger.info("[Telegram Scheduler] Starting Telegram notification scheduler...")
