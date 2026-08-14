@@ -99,7 +99,9 @@ async def handle_market_websocket(websocket: WebSocket) -> None:
             message_type = message.get("type")
             stock_code = str(message.get("stockCode", "")).strip()
             index_code = str(message.get("indexCode", "")).strip()
-            if message_type in {"subscribe", "unsubscribe"} and stock_code:
+            if message_type == "ping":
+                await websocket.send_json({"type": "pong"})
+            elif message_type in {"subscribe", "unsubscribe"} and stock_code:
                 logger.info(
                     "Market WS subscription request: user_id=%s action=%s stock_code=%s",
                     user_id,
