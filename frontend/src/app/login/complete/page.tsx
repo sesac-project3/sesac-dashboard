@@ -21,12 +21,12 @@ function LoginCompleteInner() {
     }
   }, [params, router]);
 
-  return <p className="p-8 text-sm text-black/50">로그인 처리 중...</p>;
+  return <p className="p-8 text-sm text-neutral-500">로그인 처리 중...</p>;
 }
 
 export default function LoginCompletePage() {
   return (
-    <Suspense fallback={<p className="p-8 text-sm text-black/50">로그인 처리 중...</p>}>
+    <Suspense fallback={<p className="p-8 text-sm text-neutral-500">로그인 처리 중...</p>}>
       <LoginCompleteInner />
     </Suspense>
   );

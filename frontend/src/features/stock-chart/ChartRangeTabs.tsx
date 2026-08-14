@@ -1,6 +1,7 @@
 "use client";
 
 import type { CandleInterval } from "@/entities/stock/chart-types";
+import Button from "@/shared/ui/Button";
 
 export const CHART_TABS = [
   { label: "15분", interval: "MINUTE_15" },
@@ -19,9 +20,9 @@ export default function ChartRangeTabs({
   return (
     <div className="grid grid-cols-4 gap-1 px-1">
       {CHART_TABS.map((tab, index) => (
-        <button
+        <Button
+          variant="text"
           key={tab.label}
-          type="button"
           aria-pressed={selected === index}
           onClick={() => onSelect(index)}
           className={`h-10 cursor-pointer rounded-xl text-[18px] font-semibold transition-colors ${
@@ -29,7 +30,7 @@ export default function ChartRangeTabs({
           }`}
         >
           {tab.label}
-        </button>
+        </Button>
       ))}
     </div>
   );

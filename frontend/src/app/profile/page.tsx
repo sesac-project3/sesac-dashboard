@@ -6,6 +6,7 @@ import { useLoggedIn } from "@/shared/hooks/useLoggedIn";
 import { logout } from "@/shared/api/auth";
 import PageContainer from "@/shared/ui/PageContainer";
 import Card from "@/shared/ui/Card";
+import Button from "@/shared/ui/Button";
 import {
   getTelegramStatus,
   generateTelegramLinkCode,
@@ -32,15 +33,16 @@ function Toggle({
   return (
     <div className="flex items-center justify-between gap-3 py-2">
       <div>
-        <p className="text-[13px] font-medium text-heading">{label}</p>
-        <p className="text-[11px] text-caption">{description}</p>
+        <p className="text-[14px] font-medium text-heading">{label}</p>
+        <p className="text-[12px] text-caption">{description}</p>
       </div>
-      <button
+      <Button
+        variant="icon"
         role="switch"
         aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-6 w-11 flex-shrink-0 rounded-full transition-colors duration-200 focus:outline-none ${
-          checked ? "bg-primary" : "bg-slate-200"
+          checked ? "bg-primary" : "bg-neutral-200"
         }`}
       >
         <span
@@ -48,7 +50,7 @@ function Toggle({
             checked ? "translate-x-5" : "translate-x-0"
           }`}
         />
-      </button>
+      </Button>
     </div>
   );
 }
@@ -168,27 +170,27 @@ export default function ProfilePage() {
         {/* Account Info */}
         <Card className="flex flex-col gap-1">
           <p className="text-[14px] font-medium text-heading">카카오 계정으로 로그인됨</p>
-          <p className="text-[13px] text-caption">서비스를 이용해주셔서 감사합니다.</p>
+          <p className="text-[14px] text-caption">서비스를 이용해주셔서 감사합니다.</p>
         </Card>
 
         {/* Telegram Integration Card */}
         <Card className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-[15px] font-bold text-heading flex items-center gap-2">
+            <h3 className="text-[16px] font-bold text-heading flex items-center gap-2">
               <Bell size={16} className="text-heading" /> 텔레그램 알림 서비스
             </h3>
             {tgStatus?.linked ? (
-              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+              <span className="rounded-full bg-positive/15 px-2.5 py-0.5 text-[10px] font-semibold text-positive">
                 연동 완료
               </span>
             ) : (
-              <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-500">
+              <span className="rounded-full bg-neutral-100 px-2.5 py-0.5 text-[10px] font-semibold text-neutral-500">
                 미연동
               </span>
             )}
           </div>
 
-          <p className="text-[13px] leading-relaxed text-caption">
+          <p className="text-[14px] leading-relaxed text-caption">
             {tgStatus?.linked
               ? "텔레그램 계정과 연동되어 있습니다. 아래에서 받을 알림을 선택하세요."
               : "실시간 주가 급변 경보(±5% 돌파 시) 및 매일 장 전/후 투자 브리핑을 텔레그램 메시지로 바로 받아보실 수 있습니다."}
@@ -196,7 +198,7 @@ export default function ProfilePage() {
 
           {/* Notification toggles (shown only when linked) */}
           {tgStatus?.linked && (
-            <div className="flex flex-col divide-y divide-border/40 rounded-xl border border-border/40 bg-slate-50/50 px-4">
+            <div className="flex flex-col divide-y divide-border/40 rounded-xl border border-border/40 bg-neutral-50/50 px-4">
               <Toggle
                 checked={tgStatus.notifyMorning}
                 onChange={(v) => handleToggle("notifyMorning", v)}
@@ -220,54 +222,57 @@ export default function ProfilePage() {
 
           {/* Link / Disconnect actions */}
           {tgStatus?.linked ? (
-            <button
+            <Button
+              variant="text"
               onClick={handleDisconnect}
               disabled={isDisconnecting}
-              className="mt-1 text-[13px] font-medium text-danger underline underline-offset-2 disabled:opacity-50"
+              className="mt-1 text-[14px] font-medium text-danger underline underline-offset-2 disabled:opacity-50"
             >
               {isDisconnecting ? "해제 중..." : "연동 취소하기"}
-            </button>
+            </Button>
           ) : (
             <div className="mt-1 flex flex-col gap-2">
               {linkCode ? (
-                <div className="flex flex-col items-center gap-2 rounded-xl bg-slate-50 p-3.5 text-center border border-border/40">
+                <div className="flex flex-col items-center gap-2 rounded-xl bg-neutral-50 p-3.5 text-center border border-border/40">
                   <span className="text-[12px] text-caption font-medium">발급된 연동 코드 (10분 유효)</span>
-                  <span className="text-[20px] font-black tracking-wider text-heading">{linkCode}</span>
-                  <p className="text-[11px] text-caption">
+                  <span className="text-[24px] font-black tracking-wider text-heading">{linkCode}</span>
+                  <p className="text-[12px] text-caption">
                     텔레그램 대화방에서 시작을 누르거나 대화가 중단된 경우 발급된 코드를 다시 입력해 주세요.
                   </p>
-                  <button
+                  <Button
+                    variant="text"
                     onClick={() => {
                       const botUrl = `https://t.me/${tgStatus?.botUsername || "bot"}?start=${linkCode}`;
                       window.open(botUrl, "_blank");
                     }}
-                    className="mt-2 text-[13px] font-semibold text-primary underline"
+                    className="mt-2 text-[14px] font-semibold text-primary underline"
                   >
                     텔레그램 봇으로 이동하기
-                  </button>
+                  </Button>
                 </div>
               ) : (
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleStartLink}
                   disabled={isLinking}
-                  className="flex h-[42px] w-full items-center justify-center rounded-lg bg-primary text-[14px] font-semibold text-white transition hover:bg-primary-hover active:scale-[0.98]"
+                  className="flex !h-[42px] w-full items-center justify-center rounded-lg bg-primary text-[14px] font-semibold text-white transition hover:bg-primary-hover active:scale-[0.98]"
                 >
                   {isLinking ? "코드 생성 중..." : "알림 연동 시작하기"}
-                </button>
+                </Button>
               )}
             </div>
           )}
         </Card>
 
         {/* Logout */}
-        <button
+        <Button
+          variant="pill"
           onClick={logout}
-          className="mt-2 flex h-[52px] w-full items-center justify-center rounded-full border border-border text-[15px] font-medium text-danger transition active:scale-[0.98]"
+          className="mt-2 flex h-[52px] w-full items-center justify-center rounded-full border border-border text-[14px] font-medium text-danger transition active:scale-[0.98]"
         >
           로그아웃
-        </button>
+        </Button>
       </div>
     </PageContainer>
   );
 }
-
